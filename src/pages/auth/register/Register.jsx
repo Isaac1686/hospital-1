@@ -7,7 +7,9 @@ const Register = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    phoneNumber: ''
+    phoneNumber: '',
+    age: '',
+    gender: ''
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -72,6 +74,18 @@ const Register = () => {
       newErrors.phoneNumber = 'Phone number must be at least 10 digits';
     }
     
+    // Age validation
+    if (!formData.age) {
+      newErrors.age = 'Age is required';
+    } else if (isNaN(formData.age) || formData.age < 1 || formData.age > 120) {
+      newErrors.age = 'Please enter a valid age between 1 and 120';
+    }
+    
+    // Gender validation
+    if (!formData.gender) {
+      newErrors.gender = 'Please select a gender';
+    }
+    
     return newErrors;
   };
 
@@ -87,24 +101,42 @@ const Register = () => {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // For demo purposes, log the registration data
-      console.log('Registration attempt:', {
-        fullName: formData.fullName,
-        email: formData.email,
-        phoneNumber: formData.phoneNumber,
-        registrationTime: new Date().toISOString()
+      // Make actual API call to backend
+      const response = await fetch('http://localhost:8000/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          full_name: formData.fullName,
+          email: formData.email,
+          phone_number: formData.phoneNumber,
+          age: formData.age,
+          gender: formData.gender,
+          password: formData.password,
+          password_confirmation: formData.confirmPassword
+        })
       });
       
-      // Store user info (in real app, this would come from backend)
-      localStorage.setItem('user', JSON.stringify({
-        fullName: formData.fullName,
-        email: formData.email,
-        phoneNumber: formData.phoneNumber,
-        registrationTime: new Date().toISOString()
-      }));
+      const data = await response.json();
+      
+      if (!response.ok) {
+        if (data.errors) {
+          // Convert Laravel validation errors to frontend format
+          const frontendErrors = {};
+          Object.keys(data.errors).forEach(key => {
+            frontendErrors[key] = data.errors[key][0];
+          });
+          setErrors(frontendErrors);
+        } else {
+          setErrors({ general: data.message || 'Registration failed. Please try again.' });
+        }
+        return;
+      }
+      
+      // Store user info from backend response
+      localStorage.setItem('user', JSON.stringify(data.user));
       
       // Redirect to login or dashboard
       navigate('/login');
@@ -200,6 +232,57 @@ const Register = () => {
                 />
                 {errors.phoneNumber && (
                   <p className="mt-2 text-sm text-red-600">{errors.phoneNumber}</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="age" className="block text-sm font-medium text-gray-700">
+                Age
+              </label>
+              <div className="mt-1">
+                <input
+                  id="age"
+                  name="age"
+                  type="number"
+                  value={formData.age}
+                  onChange={handleChange}
+                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
+                    errors.age ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter your age"
+                  disabled={isLoading}
+                  min="1"
+                  max="120"
+                />
+                {errors.age && (
+                  <p className="mt-2 text-sm text-red-600">{errors.age}</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="gender" className="block text-sm font-medium text-gray-700">
+                Gender
+              </label>
+              <div className="mt-1">
+                <select
+                  id="gender"
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleChange}
+                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
+                    errors.gender ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  disabled={isLoading}
+                >
+                  <option value="">Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+                {errors.gender && (
+                  <p className="mt-2 text-sm text-red-600">{errors.gender}</p>
                 )}
               </div>
             </div>

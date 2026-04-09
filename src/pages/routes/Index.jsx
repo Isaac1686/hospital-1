@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from '../auth/login/Login';
 import Register from '../auth/register/Register';
+import PatientDashboard from '../dashboard/Patient/PatientDashboard';
 
 // Import other components (you can add these as needed)
 // import Dashboard from '../dashboard/Dashboard';
@@ -19,6 +20,7 @@ const AppRoutes = () => {
         <Route path="/register" element={<Register />} />
         
         {/* Protected Routes (add authentication check later) */}
+        <Route path="/patient/dashboard" element={<PatientDashboard />} />
         {/* <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/home" element={<Home />} /> */}
         

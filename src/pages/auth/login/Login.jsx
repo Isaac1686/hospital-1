@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 
 const Login = () => {
   const [formData, setFormData] = useState({
-    username: '',
+    email: '',
     password: ''
   });
   const [errors, setErrors] = useState({});
@@ -28,14 +28,16 @@ const Login = () => {
   const validateForm = () => {
     const newErrors = {};
     
-    if (!formData.username.trim()) {
-      newErrors.username = 'Username is required';
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!emailRegex.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
     }
     
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
     }
     
     return newErrors;
@@ -53,20 +55,40 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Make actual API call to backend
+      const response = await fetch('http://localhost:8000/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password
+        })
+      });
       
-      // For demo purposes, accept any non-empty credentials
-      console.log('Login attempt:', formData);
+      const data = await response.json();
       
-      // Store user info (in real app, this would come from backend)
-      localStorage.setItem('user', JSON.stringify({
-        username: formData.username,
-        loginTime: new Date().toISOString()
-      }));
+      if (!response.ok) {
+        if (data.errors) {
+          // Convert Laravel validation errors to frontend format
+          const frontendErrors = {};
+          Object.keys(data.errors).forEach(key => {
+            frontendErrors[key] = data.errors[key][0];
+          });
+          setErrors(frontendErrors);
+        } else {
+          setErrors({ general: data.message || 'Login failed. Please try again.' });
+        }
+        return;
+      }
       
-      // Redirect to dashboard or home
-      navigate('/dashboard');
+      // Store user info from backend response
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      // Redirect to patient dashboard
+      navigate('/patient/dashboard');
     } catch (error) {
       setErrors({ general: 'Login failed. Please try again.' });
     } finally {
@@ -95,24 +117,24 @@ const Login = () => {
             )}
             
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                Username
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email Address
               </label>
               <div className="mt-1">
                 <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  value={formData.username}
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
                   onChange={handleChange}
                   className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    errors.username ? 'border-red-300' : 'border-gray-300'
+                    errors.email ? 'border-red-300' : 'border-gray-300'
                   }`}
-                  placeholder="Enter your username"
+                  placeholder="Enter your email address"
                   disabled={isLoading}
                 />
-                {errors.username && (
-                  <p className="mt-2 text-sm text-red-600">{errors.username}</p>
+                {errors.email && (
+                  <p className="mt-2 text-sm text-red-600">{errors.email}</p>
                 )}
               </div>
             </div>
