@@ -87,8 +87,27 @@ const Login = () => {
       // Store user info from backend response
       localStorage.setItem('user', JSON.stringify(data.user));
       
-      // Redirect to patient dashboard
-      navigate('/patient/dashboard');
+      // Redirect based on user role
+      const userRole = data.user.role || 'patient';
+      switch (userRole) {
+        case 'patient':
+          navigate('/patient/dashboard');
+          break;
+        case 'medical_doctor':
+          navigate('/medical/dashboard');
+          break;
+        case 'specialist_doctor':
+          navigate('/specialist/dashboard');
+          break;
+        case 'pharmacy':
+          navigate('/pharmacy/dashboard');
+          break;
+        case 'laboratory':
+          navigate('/laboratory/dashboard');
+          break;
+        default:
+          navigate('/patient/dashboard');
+      }
     } catch (error) {
       setErrors({ general: 'Login failed. Please try again.' });
     } finally {

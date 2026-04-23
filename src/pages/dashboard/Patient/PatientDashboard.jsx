@@ -86,10 +86,12 @@ const PatientDashboard = () => {
     navigate('/patient/book-appointment');
   };
 
+
   const handleViewRecords = () => {
     // Navigate to medical records page
     navigate('/patient/medical-records');
   };
+
 
   if (loading) {
     return (
@@ -126,7 +128,7 @@ const PatientDashboard = () => {
         {/* Quick Actions */}
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <button
               onClick={handleBookAppointment}
               className="bg-indigo-600 hover:bg-indigo-700 text-white p-6 rounded-lg shadow-md transition-colors"
@@ -147,78 +149,13 @@ const PatientDashboard = () => {
                 <svg className="mx-auto h-12 w-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <h3 className="font-medium">Medical Records</h3>
+                <h3 className="font-medium">View Records</h3>
               </div>
             </button>
             
-            <button className="bg-purple-600 hover:bg-purple-700 text-white p-6 rounded-lg shadow-md transition-colors">
-              <div className="text-center">
-                <svg className="mx-auto h-12 w-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-                <h3 className="font-medium">Contact Doctor</h3>
-              </div>
-            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Upcoming Appointments */}
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Appointments</h2>
-            <div className="space-y-4">
-              {appointments.map((appointment) => (
-                <div key={appointment.id} className="border-l-4 border-indigo-500 pl-4 py-2">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium text-gray-900">{appointment.doctor}</h3>
-                      <p className="text-sm text-gray-600">{appointment.specialty}</p>
-                      <p className="text-sm text-gray-500">{appointment.reason}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">{appointment.date}</p>
-                      <p className="text-sm text-gray-600">{appointment.time}</p>
-                      <span className={`inline-block mt-1 px-2 py-1 text-xs rounded-full ${
-                        appointment.status === 'upcoming' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {appointment.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {appointments.length === 0 && (
-                <p className="text-gray-500 text-center py-4">No appointments scheduled</p>
-              )}
-            </div>
-          </div>
-
-          {/* Recent Medical Records */}
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Medical Records</h2>
-            <div className="space-y-4">
-              {medicalRecords.map((record) => (
-                <div key={record.id} className="border-l-4 border-green-500 pl-4 py-2">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium text-gray-900">{record.diagnosis}</h3>
-                      <p className="text-sm text-gray-600">Dr. {record.doctor}</p>
-                      <p className="text-sm text-gray-500 mt-1">{record.treatment}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">{record.date}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {medicalRecords.length === 0 && (
-                <p className="text-gray-500 text-center py-4">No medical records available</p>
-              )}
-            </div>
-          </div>
-        </div>
 
         {/* Patient Information Card */}
         <div className="mt-8 bg-white shadow rounded-lg p-6">
@@ -226,15 +163,15 @@ const PatientDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm font-medium text-gray-500">Full Name</p>
-              <p className="text-gray-900">{user?.fullName}</p>
+              <p className="text-gray-900">{user?.full_name || user?.fullName || user?.name || 'Not available'}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Email Address</p>
-              <p className="text-gray-900">{user?.email}</p>
+              <p className="text-gray-900">{user?.email || 'Not available'}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Phone Number</p>
-              <p className="text-gray-900">{user?.phoneNumber}</p>
+              <p className="text-gray-900">{user?.phone_number || user?.phoneNumber || user?.phone || 'Not available'}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Patient ID</p>
