@@ -96,6 +96,9 @@ const PharmacyDashboard = () => {
               <button className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
                 Order Medications
               </button>
+              <button className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors">
+                Generate Report
+              </button>
             </div>
           </div>
         </div>
@@ -184,9 +187,6 @@ const PharmacyDashboard = () => {
                     Dosage
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -209,11 +209,6 @@ const PharmacyDashboard = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {prescription.dosage}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(prescription.status)}`}>
-                        {getStatusText(prescription.status)}
-                      </span>
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {prescription.date}
                     </td>
@@ -221,11 +216,9 @@ const PharmacyDashboard = () => {
                       <button className="text-indigo-600 hover:text-indigo-900 mr-3">
                         View
                       </button>
-                      {prescription.status === 'pending' && (
-                        <button className="text-green-600 hover:text-green-900">
-                          Fill
-                        </button>
-                      )}
+                      <button className="text-green-600 hover:text-green-900">
+                        Fill
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -234,92 +227,7 @@ const PharmacyDashboard = () => {
           </div>
         </div>
 
-        {/* Quick Actions and Inventory */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Quick Actions</h3>
-            </div>
-            <div className="p-6 space-y-3">
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">Add Prescription</span>
-                </div>
-              </button>
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0 0h3m-3 0h-3m2-8H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2m-9 0a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2m-9 0a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2m-9 0a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2z"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">Check Inventory</span>
-                </div>
-              </button>
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h18v18H3V3zm16 18H5V5h14v16z"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">Place Order</span>
-                </div>
-              </button>
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">Generate Report</span>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Low Stock Alert</h3>
-            </div>
-            <div className="p-6">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">Amoxicillin 500mg</p>
-                    <p className="text-xs text-gray-500">Current stock: 8 units</p>
-                  </div>
-                  <div className="flex-shrink-0">
-                    <button className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">
-                      Order Now
-                    </button>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">Lisinopril 10mg</p>
-                    <p className="text-xs text-gray-500">Current stock: 15 units</p>
-                  </div>
-                  <div className="flex-shrink-0">
-                    <button className="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-700">
-                      Order
-                    </button>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">Metformin 500mg</p>
-                    <p className="text-xs text-gray-500">Current stock: 12 units</p>
-                  </div>
-                  <div className="flex-shrink-0">
-                    <button className="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-700">
-                      Order
-                    </button>
-                  </div>
-                </div>
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

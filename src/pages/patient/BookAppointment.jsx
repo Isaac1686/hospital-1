@@ -63,33 +63,42 @@ const BookAppointment = () => {
   };
 
   const fetchAppointments = async () => {
-    // Mock appointments data
-    const mockAppointments = [
-      {
-        id: 1,
-        doctorId: 1,
-        doctorName: 'Dr. Sarah Johnson',
-        doctorSpecialty: 'Cardiology',
-        date: '2026-04-25',
-        time: '10:00 AM',
-        reason: 'Regular checkup',
-        symptoms: 'Chest pain',
-        status: 'scheduled'
-      },
-      {
-        id: 2,
-        doctorId: 3,
-        doctorName: 'Dr. Emily Davis',
-        doctorSpecialty: 'Orthopedics',
-        date: '2026-04-28',
-        time: '02:30 PM',
-        reason: 'Follow-up appointment',
-        symptoms: 'Knee pain',
-        status: 'scheduled'
+    try {
+      // API call to fetch appointments (without auth for testing)
+      const response = await fetch('http://localhost:8000/api/appointments', {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Transform the data to match frontend expectations
+        const transformedAppointments = data.map(apt => ({
+          id: apt.id,
+          doctorId: apt.doctor_id,
+          doctorName: apt.doctor?.name || 'Unknown Doctor',
+          doctorSpecialty: apt.doctor?.category || 'General',
+          date: apt.appointment_date,
+          time: apt.appointment_time,
+          reason: apt.reason,
+          symptoms: apt.symptoms,
+          status: apt.status
+        }));
+        
+        setAppointments(transformedAppointments);
+      } else {
+        console.error('Failed to fetch appointments');
+        // Set empty array on error
+        setAppointments([]);
       }
-    ];
-    
-    setAppointments(mockAppointments);
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+      // Set empty array on error
+      setAppointments([]);
+    }
   };
 
   const handleChange = (e) => {
@@ -139,7 +148,7 @@ const BookAppointment = () => {
     setIsSubmitting(true);
     
     try {
-      // Simulate API call to book appointment
+      // API call to book appointment (without auth for testing)
       const response = await fetch('http://localhost:8000/api/appointments', {
         method: 'POST',
         headers: {
@@ -150,7 +159,7 @@ const BookAppointment = () => {
           doctor_id: formData.doctorId,
           patient_id: user?.id,
           date: formData.date,
-          time: formData.time
+          time: convertTo24HourFormat(formData.time)
         })
       });
       
@@ -186,6 +195,23 @@ const BookAppointment = () => {
     ];
   };
 
+  const convertTo24HourFormat = (time12h) => {
+    if (!time12h) return '';
+    
+    const [time, period] = time12h.split(' ');
+    const [hours, minutes] = time.split(':');
+    
+    let hours24 = parseInt(hours);
+    
+    if (period === 'PM' && hours24 !== 12) {
+      hours24 += 12;
+    } else if (period === 'AM' && hours24 === 12) {
+      hours24 = 0;
+    }
+    
+    return `${hours24.toString().padStart(2, '0')}:${minutes}`;
+  };
+
   const handleEditAppointment = (appointment) => {
     setSelectedAppointment(appointment);
     setEditFormData({
@@ -213,7 +239,7 @@ const BookAppointment = () => {
 
   const confirmEdit = async () => {
     try {
-      // Simulate API call to update appointment
+      // API call to update appointment (without auth for testing)
       const response = await fetch(`http://localhost:8000/api/appointments/${selectedAppointment.id}`, {
         method: 'PUT',
         headers: {
@@ -222,8 +248,7 @@ const BookAppointment = () => {
         },
         body: JSON.stringify({
           date: editFormData.date,
-          time: editFormData.time,
-          reason: editFormData.reason,
+          time: convertTo24HourFormat(editFormData.time),
           symptoms: editFormData.symptoms
         })
       });
@@ -248,7 +273,7 @@ const BookAppointment = () => {
 
   const confirmPostpone = async () => {
     try {
-      // Simulate API call to postpone appointment
+      // API call to postpone appointment (without auth for testing)
       const response = await fetch(`http://localhost:8000/api/appointments/${selectedAppointment.id}/postpone`, {
         method: 'PUT',
         headers: {
@@ -257,7 +282,7 @@ const BookAppointment = () => {
         },
         body: JSON.stringify({
           date: postponeFormData.date,
-          time: postponeFormData.time
+          time: convertTo24HourFormat(postponeFormData.time)
         })
       });
       
@@ -281,9 +306,13 @@ const BookAppointment = () => {
 
   const confirmCancel = async () => {
     try {
-      // Simulate API call to cancel appointment
+      // API call to cancel appointment (without auth for testing)
       const response = await fetch(`http://localhost:8000/api/appointments/${selectedAppointment.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
       });
       
       if (response.ok) {
