@@ -51,15 +51,43 @@ const PatientDashboard = () => {
           const appointmentsData = await appointmentsResponse.json();
 
           // Transform the data to match frontend expectations
-          const transformedAppointments = appointmentsData.map(apt => ({
-            id: apt.id,
-            doctor: `Dr. ${apt.doctor?.name || 'Unknown Doctor'}`,
-            specialty: apt.doctor?.role === 'medical_doctor' ? 'General Practitioner' : 'Specialist',
-            date: apt.appointment_date,
-            time: apt.appointment_time,
-            status: apt.status,
-            reason: apt.reason,
-            symptoms: apt.symptoms
+          // Transform the data and fetch queue positions for scheduled appointments
+          const transformedAppointments = await Promise.all(appointmentsData.map(async (apt) => {
+            let queuePosition = null;
+
+            // Only fetch queue position for scheduled appointments
+            if (apt.status === 'scheduled') {
+              try {
+                const queueResponse = await fetch(`http://localhost:8000/api/queue/position?patient_id=${userId}&doctor_id=${apt.doctor_id}&date=${apt.appointment_date}`, {
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                  }
+                });
+
+                if (queueResponse.ok) {
+                  const queueData = await queueResponse.json();
+                  if (queueData.in_queue) {
+                    queuePosition = queueData.queue_position;
+                  }
+                }
+              } catch (queueError) {
+                console.error('Error fetching queue position:', queueError);
+              }
+            }
+
+            return {
+              id: apt.id,
+              doctor: `Dr. ${apt.doctor?.name || 'Unknown Doctor'}`,
+              specialty: apt.doctor?.role === 'medical_doctor' ? 'General Practitioner' : 'Specialist',
+              date: apt.appointment_date,
+              time: apt.appointment_time,
+              status: apt.status,
+              reason: apt.reason,
+              symptoms: apt.symptoms,
+              queuePosition: queuePosition,
+              doctor_id: apt.doctor_id
+            };
           }));
 
           setAppointments(transformedAppointments);
@@ -136,7 +164,7 @@ const PatientDashboard = () => {
           <div className="flex justify-between items-center py-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Patient Dashboard</h1>
-              <p className="text-sm text-gray-600">Welcome back, {user?.fullName}</p>
+              <p className="text-sm text-gray-600">Welcome back, {user?.name}</p>
             </div>
             <button
               onClick={handleLogout}
@@ -230,6 +258,14 @@ const PatientDashboard = () => {
                           <p className="text-sm text-gray-700"><span className="font-medium">Reason:</span> {appointment.reason}</p>
                           {appointment.symptoms && (
                             <p className="text-sm text-gray-700"><span className="font-medium">Symptoms:</span> {appointment.symptoms}</p>
+                          )}
+                          {appointment.queuePosition && (
+                            <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                              </svg>
+                              Queue #: {appointment.queuePosition}
+                            </div>
                           )}
                         </div>
                       </div>
