@@ -164,7 +164,7 @@ const PatientDashboard = () => {
           <div className="flex justify-between items-center py-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Patient Dashboard</h1>
-              <p className="text-sm text-gray-600">Welcome back, {user?.fullName}</p>
+              <p className="text-sm text-gray-600">Welcome back, {user?.name}</p>
             </div>
             <button
               onClick={handleLogout}
