@@ -37,29 +37,47 @@ const BookAppointment = () => {
       return;
     }
     setUser(JSON.parse(userData));
-    
+
     fetchDoctors();
     fetchAppointments();
     setTimeout(() => setLoading(false), 500);
   }, [navigate]);
 
   const fetchDoctors = async () => {
-    // Mock doctors data
-    const mockDoctors = [
-      // Specialist Doctors
-      { id: 1, name: 'Dr. Sarah Johnson', type: 'specialist', specialty: 'Cardiology', available: true },
-      { id: 2, name: 'Dr. Michael Chen', type: 'specialist', specialty: 'Neurology', available: true },
-      { id: 3, name: 'Dr. Emily Davis', type: 'specialist', specialty: 'Orthopedics', available: true },
-      { id: 4, name: 'Dr. Robert Wilson', type: 'specialist', specialty: 'Pediatrics', available: true },
-      { id: 5, name: 'Dr. Lisa Anderson', type: 'specialist', specialty: 'Dermatology', available: true },
-      
-      // Medical Doctors
-      { id: 6, name: 'Dr. James Taylor', type: 'medical', specialty: 'General Practice', available: true },
-      { id: 7, name: 'Dr. Maria Garcia', type: 'medical', specialty: 'Family Medicine', available: true },
-      { id: 8, name: 'Dr. David Brown', type: 'medical', specialty: 'Internal Medicine', available: true }
-    ];
-    
-    setDoctors(mockDoctors);
+    try {
+      // API call to fetch doctors from backend
+      const response = await fetch('http://localhost:8000/api/doctors', {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const responseJson = await response.json();
+
+        // Extract the doctors array from the response
+        const data = responseJson.data || [];
+
+        // Transform the data to match frontend expectations
+        const transformedDoctors = data.map(doctor => ({
+          id: doctor.id,
+          name: doctor.name,
+          type: doctor.role === 'specialist' ? 'specialist' : 'medical',
+          specialty: doctor.specialty,
+          available: true
+        }));
+
+        setDoctors(transformedDoctors);
+      } else {
+        // Fallback to empty array on error
+        setDoctors([]);
+      }
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+      // Fallback to empty array on error
+      setDoctors([]);
+    }
   };
 
   const fetchAppointments = async () => {
@@ -71,10 +89,10 @@ const BookAppointment = () => {
           'Accept': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        
+
         // Transform the data to match frontend expectations
         const transformedAppointments = data.map(apt => ({
           id: apt.id,
@@ -87,7 +105,7 @@ const BookAppointment = () => {
           symptoms: apt.symptoms,
           status: apt.status
         }));
-        
+
         setAppointments(transformedAppointments);
       } else {
         console.error('Failed to fetch appointments');
@@ -107,7 +125,7 @@ const BookAppointment = () => {
       ...prev,
       [name]: value
     }));
-    
+
     // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -119,34 +137,34 @@ const BookAppointment = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.doctorId) {
       newErrors.doctorId = 'Please select a doctor';
     }
-    
+
     if (!formData.date) {
       newErrors.date = 'Please select a date';
     }
-    
+
     if (!formData.time) {
       newErrors.time = 'Please select a time';
     }
-    
-    
+
+
     return newErrors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       // API call to book appointment (without auth for testing)
       const response = await fetch('http://localhost:8000/api/appointments', {
@@ -162,9 +180,9 @@ const BookAppointment = () => {
           time: convertTo24HourFormat(formData.time)
         })
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         alert('Appointment booked successfully!');
         navigate('/patient/dashboard');
@@ -197,18 +215,18 @@ const BookAppointment = () => {
 
   const convertTo24HourFormat = (time12h) => {
     if (!time12h) return '';
-    
+
     const [time, period] = time12h.split(' ');
     const [hours, minutes] = time.split(':');
-    
+
     let hours24 = parseInt(hours);
-    
+
     if (period === 'PM' && hours24 !== 12) {
       hours24 += 12;
     } else if (period === 'AM' && hours24 === 12) {
       hours24 = 0;
     }
-    
+
     return `${hours24.toString().padStart(2, '0')}:${minutes}`;
   };
 
@@ -252,11 +270,11 @@ const BookAppointment = () => {
           symptoms: editFormData.symptoms
         })
       });
-      
+
       if (response.ok) {
         // Update local state
-        setAppointments(prev => prev.map(apt => 
-          apt.id === selectedAppointment.id 
+        setAppointments(prev => prev.map(apt =>
+          apt.id === selectedAppointment.id
             ? { ...apt, ...editFormData }
             : apt
         ));
@@ -285,11 +303,11 @@ const BookAppointment = () => {
           time: convertTo24HourFormat(postponeFormData.time)
         })
       });
-      
+
       if (response.ok) {
         // Update local state
-        setAppointments(prev => prev.map(apt => 
-          apt.id === selectedAppointment.id 
+        setAppointments(prev => prev.map(apt =>
+          apt.id === selectedAppointment.id
             ? { ...apt, date: postponeFormData.date, time: postponeFormData.time }
             : apt
         ));
@@ -314,7 +332,7 @@ const BookAppointment = () => {
           'Accept': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         // Remove from local state
         setAppointments(prev => prev.filter(apt => apt.id !== selectedAppointment.id));
@@ -381,7 +399,7 @@ const BookAppointment = () => {
           {/* Appointment Form */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Appointment Details</h2>
-            
+
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Doctor Type Selection */}
               <div>
@@ -489,7 +507,7 @@ const BookAppointment = () => {
           {/* Doctor Information */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Available Doctors</h2>
-            
+
             <div className="space-y-4">
               {/* Specialist Doctors Section */}
               <div className="mb-6">
@@ -548,70 +566,7 @@ const BookAppointment = () => {
         </div>
 
         {/* Existing Appointments Section */}
-        {appointments.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Appointments</h2>
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="space-y-4">
-                {appointments.map((appointment) => (
-                  <div key={appointment.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center mb-2">
-                          <h3 className="font-semibold text-gray-900">{appointment.doctorName}</h3>
-                          <span className="ml-2 px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">
-                            {appointment.status}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-1">{appointment.doctorSpecialty}</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-700">
-                          <div className="flex items-center">
-                            <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                            </svg>
-                            {new Date(appointment.date).toLocaleDateString()}
-                          </div>
-                          <div className="flex items-center">
-                            <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            {appointment.time}
-                          </div>
-                        </div>
-                        <div className="mt-2">
-                          <p className="text-sm text-gray-700"><span className="font-medium">Reason:</span> {appointment.reason}</p>
-                          {appointment.symptoms && (
-                            <p className="text-sm text-gray-700"><span className="font-medium">Symptoms:</span> {appointment.symptoms}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-col space-y-2 ml-4">
-                        <button
-                          onClick={() => handleEditAppointment(appointment)}
-                          className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handlePostponeAppointment(appointment)}
-                          className="px-3 py-1 text-sm bg-yellow-600 hover:bg-yellow-700 text-white rounded-md font-medium"
-                        >
-                          Postpone
-                        </button>
-                        <button
-                          onClick={() => handleCancelAppointment(appointment)}
-                          className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md font-medium"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        
       </main>
 
       {/* Edit Appointment Modal */}
