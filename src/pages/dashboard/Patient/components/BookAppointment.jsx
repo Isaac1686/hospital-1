@@ -184,7 +184,27 @@ const BookAppointment = () => {
       const data = await response.json();
 
       if (response.ok) {
-        alert('Appointment booked successfully!');
+        // Get queue position after booking
+        try {
+          const queueResponse = await fetch(`http://localhost:8000/api/queue/position?patient_id=${user?.id}&doctor_id=${formData.doctorId}&date=${formData.date}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          });
+
+          if (queueResponse.ok) {
+            const queueData = await queueResponse.json();
+            const priorityLevel = user?.age >= 50 ? 'Priority (50+ years)' : 'Normal';
+            alert(`Appointment booked successfully!\n\nQueue Position: #${queueData.queue_position}\nPriority Level: ${priorityLevel}\nEstimated Wait Time: ${queueData.estimated_wait_time} minutes`);
+          } else {
+            alert('Appointment booked successfully!');
+          }
+        } catch (queueError) {
+          console.error('Error fetching queue position:', queueError);
+          alert('Appointment booked successfully!');
+        }
+
         navigate('/patient/dashboard');
       } else {
         if (data.errors) {
@@ -566,7 +586,7 @@ const BookAppointment = () => {
         </div>
 
         {/* Existing Appointments Section */}
-        
+
       </main>
 
       {/* Edit Appointment Modal */}
