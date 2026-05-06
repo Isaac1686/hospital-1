@@ -3,12 +3,23 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['patient_id', 'doctor_id', 'appointment_date', 'appointment_time', 'reason', 'symptoms', 'status'])]
 class Appointment extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'patient_id',
+        'doctor_id',
+        'appointment_date',
+        'appointment_time',
+        'status'
+    ];
+
     /**
      * Get the patient that owns the appointment.
      */

@@ -50,9 +50,7 @@ class AppointmentController extends Controller
                 'doctor_id' => 'required|exists:users,id',
                 'patient_id' => 'required|exists:users,id',
                 'date' => 'required|date|after_or_equal:today',
-                'time' => 'required|date_format:H:i',
-                'reason' => 'nullable|string|max:255',
-                'symptoms' => 'nullable|string|max:1000'
+                'time' => 'required|date_format:H:i'
             ], [
                 'doctor_id.required' => 'Please select a doctor',
                 'doctor_id.exists' => 'Selected doctor does not exist',
@@ -95,8 +93,6 @@ class AppointmentController extends Controller
                 'patient_id' => $validated['patient_id'],
                 'appointment_date' => $validated['date'],
                 'appointment_time' => $validated['time'],
-                'reason' => $validated['reason'] ?? 'General consultation',
-                'symptoms' => $validated['symptoms'] ?? null,
                 'status' => 'scheduled'
             ]);
 
@@ -147,8 +143,6 @@ class AppointmentController extends Controller
             $validated = $request->validate([
                 'date' => 'sometimes|required|date|after_or_equal:today',
                 'time' => 'sometimes|required|date_format:H:i',
-                'reason' => 'sometimes|nullable|string|max:255',
-                'symptoms' => 'sometimes|nullable|string|max:1000',
                 'status' => 'sometimes|required|in:scheduled,completed,cancelled,postponed'
             ]);
 
@@ -178,12 +172,6 @@ class AppointmentController extends Controller
             }
             if (isset($validated['time'])) {
                 $appointment->appointment_time = $validated['time'];
-            }
-            if (isset($validated['reason'])) {
-                $appointment->reason = $validated['reason'];
-            }
-            if (isset($validated['symptoms'])) {
-                $appointment->symptoms = $validated['symptoms'];
             }
             if (isset($validated['status'])) {
                 $appointment->status = $validated['status'];

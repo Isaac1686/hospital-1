@@ -61,15 +61,9 @@ class RegisterController extends Controller
         ]);
 
         // Return JSON response for API calls
-        if ($request->expectsJson()) {
-            return response()->json([
-                'message' => 'Registration successful',
-                'user' => $user
-            ], 201);
-        }
-
-        Auth::login($user);
-
-        return redirect()->route('patient.dashboard');
+        return response()->json([
+            'message' => 'Registration successful',
+            'user' => $user
+        ], 201);
     }
 }

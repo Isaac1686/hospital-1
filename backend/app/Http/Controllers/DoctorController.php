@@ -17,7 +17,7 @@ class DoctorController extends Controller
     {
         try {
             $doctors = User::whereIn('role', ['medical_doctor', 'specialist'])
-                ->select('id', 'name', 'email', 'phone_number', 'role')
+                ->select('id', 'name', 'email', 'phone_number', 'role', 'specialty')
                 ->get()
                 ->map(function ($doctor) {
                     return [
@@ -25,8 +25,8 @@ class DoctorController extends Controller
                         'name' => $doctor->name,
                         'email' => $doctor->email,
                         'phone_number' => $doctor->phone_number,
-                        'role' => $doctor->role,
-                        'specialty' => $doctor->role === 'medical_doctor' ? 'General Practitioner' : 'Specialist'
+                        'role' => $doctor->role === 'medical_doctor' ? 'medical' : 'specialist',
+                        'specialty' => $doctor->specialty
                     ];
                 });
 
@@ -53,7 +53,7 @@ class DoctorController extends Controller
         try {
             $doctor = User::whereIn('role', ['medical_doctor', 'specialist'])
                 ->where('id', $id)
-                ->select('id', 'name', 'email', 'phone_number', 'role')
+                ->select('id', 'name', 'email', 'phone_number', 'role', 'specialty')
                 ->first();
 
             if (!$doctor) {
@@ -67,8 +67,8 @@ class DoctorController extends Controller
                 'name' => $doctor->name,
                 'email' => $doctor->email,
                 'phone_number' => $doctor->phone_number,
-                'role' => $doctor->role,
-                'specialty' => $doctor->role === 'medical_doctor' ? 'General Practitioner' : 'Specialist'
+                'role' => $doctor->role === 'medical_doctor' ? 'medical' : 'specialist',
+                'specialty' => $doctor->specialty
             ];
 
             return response()->json([

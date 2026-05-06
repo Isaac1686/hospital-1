@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const BookAppointment = () => {
   const [user, setUser] = useState(null);
@@ -29,17 +29,35 @@ const BookAppointment = () => {
     time: ''
   });
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
+    // Check if user is logged in
     const userData = localStorage.getItem('user');
     if (!userData) {
       navigate('/login');
       return;
     }
+
     setUser(JSON.parse(userData));
+
+    // Check for edit appointment data passed from PatientDashboard
+    const editAppointmentData = location.state?.editAppointment;
 
     fetchDoctors();
     fetchAppointments();
+    
+    // If editing, populate form with existing appointment data
+    if (editAppointmentData) {
+      setFormData({
+        doctorId: editAppointmentData.doctor_id,
+        doctorType: editAppointmentData.doctor?.role === 'medical_doctor' ? 'medical' : 'specialist',
+        date: editAppointmentData.date,
+        time: editAppointmentData.time
+      });
+      setSelectedAppointment(editAppointmentData);
+    }
+    
     setTimeout(() => setLoading(false), 500);
   }, [navigate]);
 
@@ -126,6 +144,14 @@ const BookAppointment = () => {
       [name]: value
     }));
 
+    // Clear doctor selection when doctor type changes
+    if (name === 'doctorType') {
+      setFormData(prev => ({
+        ...prev,
+        doctorId: ''
+      }));
+    }
+
     // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -138,6 +164,10 @@ const BookAppointment = () => {
   const validateForm = () => {
     const newErrors = {};
 
+    if (!formData.doctorType) {
+      newErrors.doctorType = 'Please select a doctor type';
+    }
+
     if (!formData.doctorId) {
       newErrors.doctorId = 'Please select a doctor';
     }
@@ -149,7 +179,6 @@ const BookAppointment = () => {
     if (!formData.time) {
       newErrors.time = 'Please select a time';
     }
-
 
     return newErrors;
   };

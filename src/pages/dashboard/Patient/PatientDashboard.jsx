@@ -6,6 +6,13 @@ const PatientDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState([]);
   const [medicalRecords, setMedicalRecords] = useState([]);
+  const [showPostponeModal, setShowPostponeModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [postponeFormData, setPostponeFormData] = useState({
+    date: '',
+    time: ''
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -119,10 +126,84 @@ const PatientDashboard = () => {
     navigate('/patient/book-appointment');
   };
 
-
   const handleViewRecords = () => {
     // Navigate to medical records page
     navigate('/patient/medical-records');
+  };
+
+  const handleEditAppointment = (appointment) => {
+    // Navigate to appointment booking page with edit data
+    navigate('/patient/book-appointment', { state: { editAppointment: appointment } });
+  };
+
+  const handlePostponeAppointment = (appointment) => {
+    setSelectedAppointment(appointment);
+    setPostponeFormData({
+      date: '',
+      time: ''
+    });
+    setShowPostponeModal(true);
+  };
+
+  const handleCancelAppointment = (appointment) => {
+    setSelectedAppointment(appointment);
+    setShowCancelModal(true);
+  };
+
+  const confirmPostpone = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/appointments/${selectedAppointment.id}/postpone`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          date: postponeFormData.date,
+          time: postponeFormData.time
+        })
+      });
+
+      if (response.ok) {
+        // Update local state
+        setAppointments(prev => prev.map(apt =>
+          apt.id === selectedAppointment.id
+            ? { ...apt, date: postponeFormData.date, time: postponeFormData.time }
+            : apt
+        ));
+        setShowPostponeModal(false);
+        setSelectedAppointment(null);
+        alert('Appointment postponed successfully!');
+      } else {
+        alert('Failed to postpone appointment');
+      }
+    } catch (error) {
+      alert('Failed to postpone appointment. Please try again.');
+    }
+  };
+
+  const confirmCancel = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/appointments/${selectedAppointment.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        // Remove from local state
+        setAppointments(prev => prev.filter(apt => apt.id !== selectedAppointment.id));
+        setShowCancelModal(false);
+        setSelectedAppointment(null);
+        alert('Appointment cancelled successfully!');
+      } else {
+        alert('Failed to cancel appointment');
+      }
+    } catch (error) {
+      alert('Failed to cancel appointment. Please try again.');
+    }
   };
 
   const refreshAppointments = async () => {
@@ -293,6 +374,36 @@ const PatientDashboard = () => {
                               Queue Position: #{appointment.queuePosition}
                             </div>
                           )}
+                          {/* Action Buttons */}
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <button
+                              onClick={() => handleEditAppointment(appointment)}
+                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002 2zm0 4h10a1 1 0 102.01 2.01 2v10a1 1 0 01-2 2zm0 4h10a1 1 0 102.01 2.01 2v10a1 1 0 01-2 2z"></path>
+                              </svg>
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handlePostponeAppointment(appointment)}
+                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                            >
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v12l8-4 4m0 0l-8 8v8a2 2 0 01-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                              </svg>
+                              Postpone
+                            </button>
+                            <button
+                              onClick={() => handleCancelAppointment(appointment)}
+                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            >
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 01-2.828 0L10.828 1.172A2 2 0 013.658 0l1.172 1.171A2 2 0 011.314 0l6 18a2 2 0 01.342 2z"></path>
+                              </svg>
+                              Cancel
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -350,6 +461,94 @@ const PatientDashboard = () => {
           </div>
         </div>
       </main>
+
+      {/* Postpone Appointment Modal */}
+      {showPostponeModal && selectedAppointment && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Postpone Appointment</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Current appointment: {new Date(selectedAppointment.date).toLocaleDateString()} at {formatTime(selectedAppointment.time)}
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">New Date</label>
+                  <input
+                    type="date"
+                    value={postponeFormData.date}
+                    onChange={(e) => setPostponeFormData(prev => ({ ...prev, date: e.target.value }))}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">New Time</label>
+                  <select
+                    value={postponeFormData.time}
+                    onChange={(e) => setPostponeFormData(prev => ({ ...prev, time: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="">Select Time</option>
+                    {['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30'].map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setShowPostponeModal(false)}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmPostpone}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700"
+                >
+                  Postpone
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Appointment Modal */}
+      {showCancelModal && selectedAppointment && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3 text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Cancel Appointment</h3>
+              <div className="mt-2 px-7 py-3">
+                <p className="text-sm text-gray-500">
+                  Are you sure you want to cancel your appointment with {selectedAppointment.doctor} on {new Date(selectedAppointment.date).toLocaleDateString()} at {formatTime(selectedAppointment.time)}?
+                </p>
+              </div>
+              <div className="flex justify-center space-x-3 mt-4">
+                <button
+                  onClick={() => setShowCancelModal(false)}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                >
+                  No, Keep It
+                </button>
+                <button
+                  onClick={confirmCancel}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                >
+                  Yes, Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -16,7 +16,7 @@ class DoctorSeeder extends Seeder
      */
     public function run(): void
     {
-        // Specialist Doctors (matching frontend data)
+        // Specialist Doctors with specific specialties
         $specialistDoctors = [
             [
                 'name' => 'Dr. Sarah Johnson',
@@ -26,6 +26,7 @@ class DoctorSeeder extends Seeder
                 'age' => 35,
                 'gender' => 'female',
                 'role' => 'specialist',
+                'specialty' => 'Cardiology'
             ],
             [
                 'name' => 'Dr. Michael Chen',
@@ -35,6 +36,7 @@ class DoctorSeeder extends Seeder
                 'age' => 42,
                 'gender' => 'male',
                 'role' => 'specialist',
+                'specialty' => 'Neurology'
             ],
             [
                 'name' => 'Dr. Emily Davis',
@@ -44,6 +46,7 @@ class DoctorSeeder extends Seeder
                 'age' => 38,
                 'gender' => 'female',
                 'role' => 'specialist',
+                'specialty' => 'Pediatrics'
             ],
             [
                 'name' => 'Dr. Robert Wilson',
@@ -53,6 +56,7 @@ class DoctorSeeder extends Seeder
                 'age' => 45,
                 'gender' => 'male',
                 'role' => 'specialist',
+                'specialty' => 'Orthopedics'
             ],
             [
                 'name' => 'Dr. Lisa Anderson',
@@ -62,10 +66,11 @@ class DoctorSeeder extends Seeder
                 'age' => 40,
                 'gender' => 'female',
                 'role' => 'specialist',
+                'specialty' => 'Dermatology'
             ],
         ];
 
-        // Medical Doctors (matching frontend data)
+        // Medical Doctors with specific specialties
         $medicalDoctors = [
             [
                 'name' => 'Dr. James Taylor',
@@ -75,6 +80,7 @@ class DoctorSeeder extends Seeder
                 'age' => 48,
                 'gender' => 'male',
                 'role' => 'medical_doctor',
+                'specialty' => 'General Practice'
             ],
             [
                 'name' => 'Dr. Maria Garcia',
@@ -84,6 +90,7 @@ class DoctorSeeder extends Seeder
                 'age' => 36,
                 'gender' => 'female',
                 'role' => 'medical_doctor',
+                'specialty' => 'Family Medicine'
             ],
             [
                 'name' => 'Dr. David Brown',
@@ -93,6 +100,7 @@ class DoctorSeeder extends Seeder
                 'age' => 52,
                 'gender' => 'male',
                 'role' => 'medical_doctor',
+                'specialty' => 'Emergency Medicine'
             ],
         ];
 
