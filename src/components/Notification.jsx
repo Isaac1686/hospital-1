@@ -52,8 +52,8 @@ const Notification = ({ notification, onClose }) => {
   const styles = getNotificationStyles(notification.type);
 
   return (
-    <div className="fixed top-4 right-4 z-50 animate-pulse">
-      <div className={`${styles.bg} text-white p-1 rounded-2xl shadow-2xl backdrop-blur-sm border ${styles.border}`}>
+    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-slide-down">
+      <div className={`${styles.bg} text-white p-1 rounded-2xl shadow-2xl backdrop-blur-sm border ${styles.border} max-w-md mx-auto`}>
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
           <div className="flex items-start space-x-3">
             <div className={`flex-shrink-0 ${styles.iconBg} rounded-full p-2`}>

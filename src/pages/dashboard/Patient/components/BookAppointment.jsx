@@ -238,7 +238,10 @@ const BookAppointment = () => {
           showNotification('Appointment booked successfully!', 'success');
         }
 
-        navigate('/patient/dashboard');
+        // Delay navigation to allow user to see the notification
+        setTimeout(() => {
+          navigate('/patient/dashboard');
+        }, 3000);
       } else {
         if (data.errors) {
           const frontendErrors = {};
