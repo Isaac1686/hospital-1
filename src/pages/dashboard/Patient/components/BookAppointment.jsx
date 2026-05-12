@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import Notification from '../../../../components/Notification.jsx';
 
 const BookAppointment = () => {
   const [user, setUser] = useState(null);
@@ -17,6 +18,7 @@ const BookAppointment = () => {
   const [showPostponeModal, setShowPostponeModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [notification, setNotification] = useState(null);
   const [editFormData, setEditFormData] = useState({
     date: ''
   });
@@ -25,6 +27,18 @@ const BookAppointment = () => {
   });
   const navigate = useNavigate();
   const location = useLocation();
+
+  const showNotification = (message, type = 'success', queueData = null) => {
+    setNotification({
+      message,
+      type,
+      queueData
+    });
+  };
+
+  const hideNotification = () => {
+    setNotification(null);
+  };
 
   useEffect(() => {
     // Check if user is logged in
@@ -211,13 +225,17 @@ const BookAppointment = () => {
           if (queueResponse.ok) {
             const queueData = await queueResponse.json();
             const priorityLevel = user?.age >= 50 ? 'Priority (50+ years)' : 'Normal';
-            alert(`Appointment booked successfully!\n\nQueue Position: #${queueData.queue_position}\nPriority Level: ${priorityLevel}\nEstimated Wait Time: ${queueData.estimated_wait_time} minutes`);
+            showNotification(
+              `Appointment booked successfully! Queue Position: #${queueData.queue_position}, Priority Level: ${priorityLevel}, Estimated Wait Time: ${queueData.estimated_wait_time} minutes`,
+              'success',
+              queueData
+            );
           } else {
-            alert('Appointment booked successfully!');
+            showNotification('Appointment booked successfully!', 'success');
           }
         } catch (queueError) {
           console.error('Error fetching queue position:', queueError);
-          alert('Appointment booked successfully!');
+          showNotification('Appointment booked successfully!', 'success');
         }
 
         navigate('/patient/dashboard');
@@ -688,6 +706,9 @@ const BookAppointment = () => {
           </div>
         </div>
       )}
+
+      {/* Notification Component */}
+      <Notification notification={notification} onClose={hideNotification} />
     </div>
   );
 };
