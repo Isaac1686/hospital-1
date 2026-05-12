@@ -15,8 +15,6 @@ class Appointment extends Model
     protected $fillable = [
         'patient_id',
         'doctor_id',
-        'appointment_date',
-        'appointment_time',
         'status'
     ];
 
@@ -44,8 +42,6 @@ class Appointment extends Model
     protected function casts(): array
     {
         return [
-            'appointment_date' => 'date',
-            'appointment_time' => 'datetime:H:i',
             'available' => 'boolean',
         ];
     }

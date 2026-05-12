@@ -10,8 +10,7 @@ const PatientDashboard = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [postponeFormData, setPostponeFormData] = useState({
-    date: '',
-    time: ''
+    date: ''
   });
   const navigate = useNavigate();
 
@@ -87,11 +86,9 @@ const PatientDashboard = () => {
               id: apt.id,
               doctor: `Dr. ${apt.doctor?.name || 'Unknown Doctor'}`,
               specialty: apt.doctor?.role === 'medical_doctor' ? 'General Practitioner' : 'Specialist',
-              date: apt.appointment_date,
-              time: apt.appointment_time,
+              date: apt.created_at ? new Date(apt.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
+              time: apt.created_at ? formatTime(new Date(apt.created_at).toTimeString().substring(0, 5)) : '',
               status: apt.status,
-              reason: apt.reason,
-              symptoms: apt.symptoms,
               queuePosition: queuePosition,
               doctor_id: apt.doctor_id
             };
@@ -139,8 +136,7 @@ const PatientDashboard = () => {
   const handlePostponeAppointment = (appointment) => {
     setSelectedAppointment(appointment);
     setPostponeFormData({
-      date: '',
-      time: ''
+      date: ''
     });
     setShowPostponeModal(true);
   };
@@ -159,8 +155,7 @@ const PatientDashboard = () => {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          date: postponeFormData.date,
-          time: postponeFormData.time
+          date: postponeFormData.date
         })
       });
 
@@ -168,7 +163,7 @@ const PatientDashboard = () => {
         // Update local state
         setAppointments(prev => prev.map(apt =>
           apt.id === selectedAppointment.id
-            ? { ...apt, date: postponeFormData.date, time: postponeFormData.time }
+            ? { ...apt, date: postponeFormData.date }
             : apt
         ));
         setShowPostponeModal(false);
@@ -354,15 +349,10 @@ const PatientDashboard = () => {
                             <svg className="w-5 h-5 mr-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
-                            <span className="font-medium text-gray-700">{formatTime(appointment.time)}</span>
+                            <span className="font-medium text-gray-700">{appointment.time}</span>
                           </div>
                         </div>
                         <div className="mt-4 space-y-2">
-                          {appointment.symptoms && (
-                            <div className="bg-amber-50 rounded-lg p-3">
-                              <p className="text-sm font-medium text-amber-900">Symptoms: <span className="text-amber-700">{appointment.symptoms}</span></p>
-                            </div>
-                          )}
                           {appointment.queuePosition && (
                             <div className="mt-3 inline-flex items-center px-4 py-2 rounded-full text-sm font-bold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg">
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -378,7 +368,7 @@ const PatientDashboard = () => {
                               className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             >
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002 2zm0 4h10a1 1 0 102.01 2.01 2v10a1 1 0 01-2 2zm0 4h10a1 1 0 102.01 2.01 2v10a1 1 0 01-2 2z"></path>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V9a2 2 0 00-2-2z"></path>
                               </svg>
                               Edit
                             </button>
@@ -387,7 +377,7 @@ const PatientDashboard = () => {
                               className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
                             >
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v12l8-4 4m0 0l-8 8v8a2 2 0 01-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                               </svg>
                               Postpone
                             </button>
@@ -396,7 +386,7 @@ const PatientDashboard = () => {
                               className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                             >
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 01-2.828 0L10.828 1.172A2 2 0 013.658 0l1.172 1.171A2 2 0 011.314 0l6 18a2 2 0 01.342 2z"></path>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
                               </svg>
                               Cancel
                             </button>
@@ -466,7 +456,7 @@ const PatientDashboard = () => {
             <div className="mt-3">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Postpone Appointment</h3>
               <p className="text-sm text-gray-600 mb-4">
-                Current appointment: {new Date(selectedAppointment.date).toLocaleDateString()} at {formatTime(selectedAppointment.time)}
+                Current appointment: {new Date(selectedAppointment.date).toLocaleDateString()}
               </p>
               <div className="space-y-4">
                 <div>
@@ -478,19 +468,6 @@ const PatientDashboard = () => {
                     min={new Date().toISOString().split('T')[0]}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">New Time</label>
-                  <select
-                    value={postponeFormData.time}
-                    onChange={(e) => setPostponeFormData(prev => ({ ...prev, time: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="">Select Time</option>
-                    {['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30'].map(time => (
-                      <option key={time} value={time}>{time}</option>
-                    ))}
-                  </select>
                 </div>
               </div>
               <div className="flex justify-end space-x-3 mt-6">
@@ -525,7 +502,7 @@ const PatientDashboard = () => {
               <h3 className="text-lg leading-6 font-medium text-gray-900">Cancel Appointment</h3>
               <div className="mt-2 px-7 py-3">
                 <p className="text-sm text-gray-500">
-                  Are you sure you want to cancel your appointment with {selectedAppointment.doctor} on {new Date(selectedAppointment.date).toLocaleDateString()} at {formatTime(selectedAppointment.time)}?
+                  Are you sure you want to cancel your appointment with {selectedAppointment.doctor} on {new Date(selectedAppointment.date).toLocaleDateString()}?
                 </p>
               </div>
               <div className="flex justify-center space-x-3 mt-4">
