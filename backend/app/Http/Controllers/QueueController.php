@@ -232,16 +232,34 @@ class QueueController extends Controller
     }
 
     /**
-     * Prioritize appointments based on patient age
+     * Prioritize appointments based on patient age with specific queue numbering
      *
      * @param  \Illuminate\Support\Collection  $appointments
      * @return \Illuminate\Support\Collection
      */
     private function prioritizeAppointments(Collection $appointments): Collection
     {
-        return $appointments->map(function ($appointment) {
+        // Separate patients by age
+        $oldPatients = $appointments->filter(function ($appointment) {
+            return ($appointment->patient->age ?? 0) >= 50;
+        });
+        
+        $normalPatients = $appointments->filter(function ($appointment) {
+            return ($appointment->patient->age ?? 0) < 50;
+        });
+
+        // Sort each group by appointment time
+        $oldPatientsSorted = $oldPatients->sortBy('appointment_time')->values();
+        $normalPatientsSorted = $normalPatients->sortBy('appointment_time')->values();
+
+        // Combine with old patients first (queue numbers 1-10), then normal patients (queue numbers 11+)
+        $combined = $oldPatientsSorted->concat($normalPatientsSorted);
+
+        // Assign queue numbers and other properties
+        return $combined->map(function ($appointment, $index) {
             $patientAge = $appointment->patient->age ?? 0;
             $priorityLevel = $this->determinePriorityLevel($patientAge);
+            $queueNumber = $index + 1; // Sequential numbering starting from 1
             
             return [
                 'appointment_id' => $appointment->id,
@@ -255,13 +273,10 @@ class QueueController extends Controller
                 'reason' => $appointment->reason,
                 'symptoms' => $appointment->symptoms,
                 'priority_level' => $priorityLevel,
+                'queue_number' => $queueNumber,
                 'priority_score' => $this->calculatePriorityScore($patientAge, $appointment->appointment_time)
             ];
-        })->sortBy([
-            ['priority_level', 'asc'], // high priority first
-            ['priority_score', 'asc'], // lower score (earlier time) first
-            ['appointment_time', 'asc'] // chronological order as tiebreaker
-        ])->values();
+        });
     }
 
     /**
