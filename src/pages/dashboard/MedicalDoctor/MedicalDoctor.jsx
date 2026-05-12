@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const MedicalDoctorDashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalPatients: 0,
-    appointmentsToday: 0,
-    pendingReports: 0,
-    completedConsultations: 0
+    appointmentsToday: 0
   });
   const [recentAppointments, setRecentAppointments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -16,9 +15,7 @@ const MedicalDoctorDashboard = () => {
     setTimeout(() => {
       setStats({
         totalPatients: 156,
-        appointmentsToday: 8,
-        pendingReports: 12,
-        completedConsultations: 89
+        appointmentsToday: 8
       });
       
       setRecentAppointments([
@@ -31,6 +28,57 @@ const MedicalDoctorDashboard = () => {
       setIsLoading(false);
     }, 1000);
   }, []);
+
+  const handleLogout = () => {
+    // Clear any authentication tokens or user data
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+    
+    // Navigate to login page
+    navigate('/login');
+  };
+
+  const handleGeneratePrescription = () => {
+    // Navigate to prescription generation page
+    navigate('/prescriptions/generate');
+  };
+
+  const handleViewPatientRecords = () => {
+    // Navigate to patient records page
+    navigate('/patients');
+  };
+
+  const handleViewAppointment = (appointmentId) => {
+    // Navigate to specific appointment details
+    navigate(`/appointments/${appointmentId}`);
+  };
+
+  const handleStartAppointment = (appointmentId) => {
+    // Update appointment status to in-progress
+    setRecentAppointments(prev => 
+      prev.map(apt => 
+        apt.id === appointmentId 
+          ? { ...apt, status: 'in-progress' }
+          : apt
+      )
+    );
+  };
+
+  const handleCompleteAppointment = (appointmentId) => {
+    // Update appointment status to completed
+    setRecentAppointments(prev => 
+      prev.map(apt => 
+        apt.id === appointmentId 
+          ? { ...apt, status: 'completed' }
+          : apt
+      )
+    );
+  };
+
+  const handleViewPatient = (patientName) => {
+    // Navigate to specific patient details
+    navigate(`/patients?search=${encodeURIComponent(patientName)}`);
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -98,14 +146,15 @@ const MedicalDoctorDashboard = () => {
               <h1 className="text-2xl font-bold text-gray-900">Medical Dashboard</h1>
               <p className="text-sm text-gray-600">Manage patients and appointments</p>
             </div>
-            <div className="flex space-x-3">
-              <button className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors">
-                New Appointment
-              </button>
-              <button className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
-                Add Patient
-              </button>
-            </div>
+            <button 
+              onClick={handleLogout}
+              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center transition-colors duration-200"
+            >
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+              </svg>
+              Logout
+            </button>
           </div>
         </div>
       </div>
@@ -113,7 +162,7 @@ const MedicalDoctorDashboard = () => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0 bg-blue-100 rounded-lg p-3">
@@ -142,33 +191,7 @@ const MedicalDoctorDashboard = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-yellow-100 rounded-lg p-3">
-                <svg className="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pending Reports</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pendingReports}</p>
-              </div>
-            </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-purple-100 rounded-lg p-3">
-                <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Completed Consultations</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.completedConsultations}</p>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Recent Appointments Table */}
@@ -217,16 +240,25 @@ const MedicalDoctorDashboard = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button className="text-indigo-600 hover:text-indigo-900 mr-3">
+                      <button 
+                        onClick={() => handleViewAppointment(appointment.id)}
+                        className="text-indigo-600 hover:text-indigo-900 mr-3"
+                      >
                         View
                       </button>
                       {appointment.status === 'confirmed' && (
-                        <button className="text-green-600 hover:text-green-900 mr-3">
+                        <button 
+                          onClick={() => handleStartAppointment(appointment.id)}
+                          className="text-green-600 hover:text-green-900 mr-3"
+                        >
                           Start
                         </button>
                       )}
                       {appointment.status === 'in-progress' && (
-                        <button className="text-blue-600 hover:text-blue-900">
+                        <button 
+                          onClick={() => handleCompleteAppointment(appointment.id)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
                           Complete
                         </button>
                       )}
@@ -245,23 +277,10 @@ const MedicalDoctorDashboard = () => {
               <h3 className="text-lg font-medium text-gray-900">Quick Actions</h3>
             </div>
             <div className="p-6 space-y-3">
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">Schedule Appointment</span>
-                </div>
-              </button>
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0 0h3m-3 0h-3m2-8H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2m-9 0a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2m-9 0a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2z"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">Add New Patient</span>
-                </div>
-              </button>
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+              <button 
+                onClick={handleGeneratePrescription}
+                className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              >
                 <div className="flex items-center">
                   <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -269,7 +288,10 @@ const MedicalDoctorDashboard = () => {
                   <span className="text-sm font-medium text-gray-900">Generate Prescription</span>
                 </div>
               </button>
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+              <button 
+                onClick={handleViewPatientRecords}
+                className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              >
                 <div className="flex items-center">
                   <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
@@ -296,7 +318,10 @@ const MedicalDoctorDashboard = () => {
                       <p className="text-xs text-gray-500">Last visit: 2 days ago</p>
                     </div>
                   </div>
-                  <button className="text-indigo-600 hover:text-indigo-900 text-sm">
+                  <button 
+                    onClick={() => handleViewPatient('John Doe')}
+                    className="text-indigo-600 hover:text-indigo-900 text-sm"
+                  >
                     View
                   </button>
                 </div>
@@ -310,7 +335,10 @@ const MedicalDoctorDashboard = () => {
                       <p className="text-xs text-gray-500">Last visit: 1 week ago</p>
                     </div>
                   </div>
-                  <button className="text-indigo-600 hover:text-indigo-900 text-sm">
+                  <button 
+                    onClick={() => handleViewPatient('Jane Smith')}
+                    className="text-indigo-600 hover:text-indigo-900 text-sm"
+                  >
                     View
                   </button>
                 </div>
@@ -324,7 +352,10 @@ const MedicalDoctorDashboard = () => {
                       <p className="text-xs text-gray-500">Last visit: 2 weeks ago</p>
                     </div>
                   </div>
-                  <button className="text-indigo-600 hover:text-indigo-900 text-sm">
+                  <button 
+                    onClick={() => handleViewPatient('Robert Johnson')}
+                    className="text-indigo-600 hover:text-indigo-900 text-sm"
+                  >
                     View
                   </button>
                 </div>

@@ -96,7 +96,7 @@ const Login = () => {
         case 'medical_doctor':
           navigate('/medical/dashboard');
           break;
-        case 'specialist_doctor':
+        case 'specialist':
           navigate('/specialist/dashboard');
           break;
         case 'pharmacy':

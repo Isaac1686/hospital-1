@@ -358,9 +358,6 @@ const PatientDashboard = () => {
                           </div>
                         </div>
                         <div className="mt-4 space-y-2">
-                          <div className="bg-blue-50 rounded-lg p-3">
-                            <p className="text-sm font-medium text-blue-900">Reason: <span className="text-blue-700">{appointment.reason}</span></p>
-                          </div>
                           {appointment.symptoms && (
                             <div className="bg-amber-50 rounded-lg p-3">
                               <p className="text-sm font-medium text-amber-900">Symptoms: <span className="text-amber-700">{appointment.symptoms}</span></p>

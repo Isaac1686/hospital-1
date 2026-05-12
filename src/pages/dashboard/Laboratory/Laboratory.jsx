@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const LaboratoryDashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     pendingTests: 0,
     completedTests: 0,
@@ -10,6 +11,9 @@ const LaboratoryDashboard = () => {
   });
   const [recentTests, setRecentTests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [queue, setQueue] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showQueue, setShowQueue] = useState(false);
 
   useEffect(() => {
     // Simulate loading data
@@ -31,6 +35,42 @@ const LaboratoryDashboard = () => {
       setIsLoading(false);
     }, 1000);
   }, []);
+
+  useEffect(() => {
+    if (showQueue) {
+      fetchQueueData();
+    }
+  }, [selectedDate, showQueue]);
+
+  const fetchQueueData = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user'));
+      if (!user) return;
+
+      const response = await fetch(`http://localhost:8000/api/queue/doctor?doctor_id=${user.id}&date=${selectedDate}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setQueue(data.queue || []);
+      }
+    } catch (error) {
+      console.error('Error fetching queue:', error);
+    }
+  };
+
+  const handleLogout = () => {
+    // Clear any authentication tokens or user data
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+    
+    // Navigate to login page
+    navigate('/login');
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -58,6 +98,22 @@ const LaboratoryDashboard = () => {
     }
   };
 
+  const getPriorityColor = (priority) => {
+    return priority === 'high' ? 'text-red-600 bg-red-50 border-red-200' : 'text-blue-600 bg-blue-50 border-blue-200';
+  };
+
+  const getPriorityBadge = (priority) => {
+    return priority === 'high' ? 'Priority (50+)' : 'Normal';
+  };
+
+  const formatTime = (time) => {
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -80,11 +136,30 @@ const LaboratoryDashboard = () => {
               <p className="text-sm text-gray-600">Manage laboratory tests and results</p>
             </div>
             <div className="flex space-x-3">
+              <button 
+                onClick={() => setShowQueue(!showQueue)}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  showQueue 
+                    ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                }`}
+              >
+                {showQueue ? 'Hide Queue' : 'Show Queue'}
+              </button>
               <button className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors">
                 New Test Request
               </button>
               <button className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
                 Generate Report
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center transition-colors duration-200"
+              >
+                <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                </svg>
+                Logout
               </button>
             </div>
           </div>
@@ -151,6 +226,141 @@ const LaboratoryDashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Age-Based Queue Section */}
+        {showQueue && (
+          <div className="bg-white rounded-lg shadow mb-8">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-medium text-gray-900">Age-Based Patient Queue</h2>
+                <div className="flex items-center space-x-4">
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  <div className="flex items-center space-x-4 text-sm">
+                    <span className="text-gray-600">
+                      Total: <span className="font-semibold">{queue.length}</span>
+                    </span>
+                    <span className="text-red-600">
+                      Priority (50+): <span className="font-semibold">{queue.filter(p => p.priority_level === 'high').length}</span>
+                    </span>
+                    <span className="text-blue-600">
+                      Normal: <span className="font-semibold">{queue.filter(p => p.priority_level === 'normal').length}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {queue.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-400 text-5xl mb-4">📋</div>
+                <p className="text-gray-500 text-lg">No patients in queue for this date</p>
+                <p className="text-gray-400 text-sm mt-2">Patients will appear here when appointments are scheduled</p>
+              </div>
+            ) : (
+              <div className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Priority Queue (50+) */}
+                  <div>
+                    <h3 className="text-md font-semibold text-red-600 mb-4 flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      Priority Queue (Age 50+) - Queue Numbers 1-10
+                    </h3>
+                    <div className="space-y-3">
+                      {queue.filter(p => p.priority_level === 'high').slice(0, 10).map((patient) => (
+                        <div key={patient.appointment_id} className="border border-red-200 rounded-lg p-4 bg-red-50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                                <span className="text-red-600 font-bold">#{patient.queue_number}</span>
+                              </div>
+                              <div>
+                                <h4 className="font-medium text-gray-900">{patient.patient.name}</h4>
+                                <div className="flex items-center space-x-3 text-sm text-gray-600 mt-1">
+                                  <span className="font-semibold">Age: {patient.patient.age}</span>
+                                  <span>📞 {patient.patient.phone_number}</span>
+                                  <span>🕐 {formatTime(patient.appointment_time)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                Priority
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Normal Queue (<50) */}
+                  <div>
+                    <h3 className="text-md font-semibold text-blue-600 mb-4 flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                      </svg>
+                      Normal Queue (Age &lt;50) - Queue Numbers 11+
+                    </h3>
+                    <div className="space-y-3">
+                      {queue.filter(p => p.priority_level === 'normal').map((patient) => (
+                        <div key={patient.appointment_id} className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <span className="text-blue-600 font-bold">#{patient.queue_number}</span>
+                              </div>
+                              <div>
+                                <h4 className="font-medium text-gray-900">{patient.patient.name}</h4>
+                                <div className="flex items-center space-x-3 text-sm text-gray-600 mt-1">
+                                  <span className="font-semibold">Age: {patient.patient.age}</span>
+                                  <span>📞 {patient.patient.phone_number}</span>
+                                  <span>🕐 {formatTime(patient.appointment_time)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                Normal
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Queue Legend */}
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Queue Priority System</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
+                      <div>
+                        <span className="font-medium text-red-600">Priority Patients (50+ years)</span>
+                        <p className="text-gray-600">Queue numbers 1-10 - Served first</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-4 h-4 bg-blue-100 border border-blue-200 rounded"></div>
+                      <div>
+                        <span className="font-medium text-blue-600">Normal Patients (&lt;50 years)</span>
+                        <p className="text-gray-600">Queue numbers 11+ - Served after priority</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Recent Tests Table */}
         <div className="bg-white rounded-lg shadow">
@@ -224,7 +434,7 @@ const LaboratoryDashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
             <div className="space-y-3">
@@ -277,33 +487,7 @@ const LaboratoryDashboard = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
-            <div className="space-y-3">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 w-2 h-2 bg-green-400 rounded-full mt-2"></div>
-                <div className="ml-3">
-                  <p className="text-sm text-gray-900">Blood test completed for John Doe</p>
-                  <p className="text-xs text-gray-500">2 hours ago</p>
-                </div>
-              </div>
-              <div className="flex items-start">
-                <div className="flex-shrink-0 w-2 h-2 bg-blue-400 rounded-full mt-2"></div>
-                <div className="ml-3">
-                  <p className="text-sm text-gray-900">New MRI scan requested</p>
-                  <p className="text-xs text-gray-500">4 hours ago</p>
-                </div>
-              </div>
-              <div className="flex items-start">
-                <div className="flex-shrink-0 w-2 h-2 bg-yellow-400 rounded-full mt-2"></div>
-                <div className="ml-3">
-                  <p className="text-sm text-gray-900">Urine test results uploaded</p>
-                  <p className="text-xs text-gray-500">6 hours ago</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+                  </div>
       </div>
     </div>
   );
