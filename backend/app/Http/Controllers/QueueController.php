@@ -27,10 +27,10 @@ class QueueController extends Controller
             $doctorId = $validated['doctor_id'];
             $date = $validated['date'] ?? now()->toDateString();
 
-            // Get appointments for the doctor on the specified date
+            // Get appointments for the doctor on specified date (using created_at timestamp)
             $appointments = Appointment::with(['patient', 'doctor'])
                 ->where('doctor_id', $doctorId)
-                ->where('appointment_date', $date)
+                ->whereDate('created_at', $date)
                 ->where('status', 'scheduled')
                 ->get();
 
@@ -78,7 +78,7 @@ class QueueController extends Controller
             foreach ($doctors as $doctor) {
                 $appointments = Appointment::with(['patient', 'doctor'])
                     ->where('doctor_id', $doctor->id)
-                    ->where('appointment_date', $date)
+                    ->whereDate('created_at', $date)
                     ->where('status', 'scheduled')
                     ->get();
 
@@ -141,25 +141,11 @@ class QueueController extends Controller
             $patient = User::findOrFail($validated['patient_id']);
             $priorityLevel = $this->determinePriorityLevel($patient->age);
 
-            // Check for existing appointment at the same date and time
-            $existingAppointment = Appointment::where('doctor_id', $validated['doctor_id'])
-                                              ->where('appointment_date', $validated['date'])
-                                              ->where('appointment_time', $validated['time'])
-                                              ->where('status', '!=', 'cancelled')
-                                              ->first();
-
-            if ($existingAppointment) {
-                return response()->json([
-                    'message' => 'This time slot is already booked',
-                    'errors' => ['time' => ['Selected time slot is not available']]
-                ], 422);
-            }
-
+            // Create appointment without conflicts (using timestamp)
             $appointment = Appointment::create([
                 'doctor_id' => $validated['doctor_id'],
                 'patient_id' => $validated['patient_id'],
                 'appointment_date' => $validated['date'],
-                'appointment_time' => $validated['time'],
                 'reason' => $validated['reason'] ?? 'General consultation',
                 'symptoms' => $validated['symptoms'] ?? null,
                 'status' => 'scheduled'
@@ -196,8 +182,7 @@ class QueueController extends Controller
         try {
             $validated = $request->validate([
                 'patient_id' => 'required|exists:users,id',
-                'doctor_id' => 'required|exists:users,id',
-                'date' => 'nullable|date'
+                'doctor_id' => 'required|exists:users,id'
             ]);
 
             $patientId = $validated['patient_id'];
@@ -251,16 +236,15 @@ class QueueController extends Controller
                     'age' => $patientAge,
                     'phone_number' => $appointment->patient->phone_number
                 ],
-                'appointment_time' => $appointment->appointment_time,
                 'reason' => $appointment->reason,
                 'symptoms' => $appointment->symptoms,
                 'priority_level' => $priorityLevel,
-                'priority_score' => $this->calculatePriorityScore($patientAge, $appointment->appointment_time)
+                'priority_score' => $this->calculatePriorityScore($patientAge)
             ];
         })->sortBy([
             ['priority_level', 'asc'], // high priority first
-            ['priority_score', 'asc'], // lower score (earlier time) first
-            ['appointment_time', 'asc'] // chronological order as tiebreaker
+            ['priority_score', 'asc'], // lower score (earlier timestamp) first
+            ['created_at', 'asc'] // chronological order as tiebreaker
         ])->values();
     }
 
@@ -282,12 +266,10 @@ class QueueController extends Controller
      * @param  string  $time
      * @return int
      */
-    private function calculatePriorityScore(int $age, string $time): int
+    private function calculatePriorityScore(int $age): int
     {
-        $agePriority = $age >= 50 ? 0 : 1000;
-        $timeScore = (int)str_replace(':', '', $time);
-        
-        return $agePriority + $timeScore;
+        // Only age-based priority since we're using timestamps
+        return $age >= 50 ? 0 : 1000;
     }
 
     /**
@@ -301,7 +283,7 @@ class QueueController extends Controller
     {
         $appointments = Appointment::with(['patient', 'doctor'])
             ->where('doctor_id', $doctorId)
-            ->where('appointment_date', $date)
+            ->whereDate('created_at', $date)
             ->where('status', 'scheduled')
             ->get();
 

@@ -8,8 +8,7 @@ const BookAppointment = () => {
   const [formData, setFormData] = useState({
     doctorId: '',
     doctorType: '',
-    date: '',
-    time: ''
+    date: ''
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -19,14 +18,10 @@ const BookAppointment = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [editFormData, setEditFormData] = useState({
-    date: '',
-    time: '',
-    reason: '',
-    symptoms: ''
+    date: ''
   });
   const [postponeFormData, setPostponeFormData] = useState({
-    date: '',
-    time: ''
+    date: ''
   });
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,18 +41,17 @@ const BookAppointment = () => {
 
     fetchDoctors();
     fetchAppointments();
-    
+
     // If editing, populate form with existing appointment data
     if (editAppointmentData) {
       setFormData({
         doctorId: editAppointmentData.doctor_id,
         doctorType: editAppointmentData.doctor?.role === 'medical_doctor' ? 'medical' : 'specialist',
-        date: editAppointmentData.date,
-        time: editAppointmentData.time
+        date: editAppointmentData.date
       });
       setSelectedAppointment(editAppointmentData);
     }
-    
+
     setTimeout(() => setLoading(false), 500);
   }, [navigate]);
 
@@ -117,10 +111,8 @@ const BookAppointment = () => {
           doctorId: apt.doctor_id,
           doctorName: apt.doctor?.name || 'Unknown Doctor',
           doctorSpecialty: apt.doctor?.category || 'General',
-          date: apt.appointment_date,
-          time: apt.appointment_time,
-          reason: apt.reason,
-          symptoms: apt.symptoms,
+          date: apt.created_at ? new Date(apt.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
+          time: apt.created_at ? new Date(apt.created_at).toTimeString().substring(0, 5) : '',
           status: apt.status
         }));
 
@@ -176,10 +168,6 @@ const BookAppointment = () => {
       newErrors.date = 'Please select a date';
     }
 
-    if (!formData.time) {
-      newErrors.time = 'Please select a time';
-    }
-
     return newErrors;
   };
 
@@ -204,9 +192,7 @@ const BookAppointment = () => {
         },
         body: JSON.stringify({
           doctor_id: formData.doctorId,
-          patient_id: user?.id,
-          date: formData.date,
-          time: convertTo24HourFormat(formData.time)
+          patient_id: user?.id
         })
       });
 
@@ -215,7 +201,7 @@ const BookAppointment = () => {
       if (response.ok) {
         // Get queue position after booking
         try {
-          const queueResponse = await fetch(`http://localhost:8000/api/queue/position?patient_id=${user?.id}&doctor_id=${formData.doctorId}&date=${formData.date}`, {
+          const queueResponse = await fetch(`http://localhost:8000/api/queue/position?patient_id=${user?.id}&doctor_id=${formData.doctorId}`, {
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
@@ -282,10 +268,7 @@ const BookAppointment = () => {
   const handleEditAppointment = (appointment) => {
     setSelectedAppointment(appointment);
     setEditFormData({
-      date: appointment.date,
-      time: appointment.time,
-      reason: appointment.reason,
-      symptoms: appointment.symptoms || ''
+      date: appointment.date
     });
     setShowEditModal(true);
   };
@@ -293,8 +276,7 @@ const BookAppointment = () => {
   const handlePostponeAppointment = (appointment) => {
     setSelectedAppointment(appointment);
     setPostponeFormData({
-      date: '',
-      time: ''
+      date: ''
     });
     setShowPostponeModal(true);
   };
@@ -314,9 +296,7 @@ const BookAppointment = () => {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          date: editFormData.date,
-          time: convertTo24HourFormat(editFormData.time),
-          symptoms: editFormData.symptoms
+          date: editFormData.date
         })
       });
 
@@ -324,7 +304,7 @@ const BookAppointment = () => {
         // Update local state
         setAppointments(prev => prev.map(apt =>
           apt.id === selectedAppointment.id
-            ? { ...apt, ...editFormData }
+            ? { ...apt, date: editFormData.date }
             : apt
         ));
         setShowEditModal(false);
@@ -348,8 +328,7 @@ const BookAppointment = () => {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          date: postponeFormData.date,
-          time: convertTo24HourFormat(postponeFormData.time)
+          date: postponeFormData.date
         })
       });
 
@@ -357,7 +336,7 @@ const BookAppointment = () => {
         // Update local state
         setAppointments(prev => prev.map(apt =>
           apt.id === selectedAppointment.id
-            ? { ...apt, date: postponeFormData.date, time: postponeFormData.time }
+            ? { ...apt, date: postponeFormData.date }
             : apt
         ));
         setShowPostponeModal(false);
@@ -506,26 +485,6 @@ const BookAppointment = () => {
                 )}
               </div>
 
-              {/* Time Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Time</label>
-                <select
-                  name="time"
-                  value={formData.time}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="">Select Time</option>
-                  {getAvailableTimes().map(time => (
-                    <option key={time} value={time}>{time}</option>
-                  ))}
-                </select>
-                {errors.time && (
-                  <p className="mt-1 text-sm text-red-600">{errors.time}</p>
-                )}
-              </div>
-
-
               {/* General Error */}
               {errors.general && (
                 <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
@@ -635,37 +594,6 @@ const BookAppointment = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                  <select
-                    value={editFormData.time}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, time: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="">Select Time</option>
-                    {getAvailableTimes().map(time => (
-                      <option key={time} value={time}>{time}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
-                  <textarea
-                    value={editFormData.reason}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, reason: e.target.value }))}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Symptoms</label>
-                  <textarea
-                    value={editFormData.symptoms}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, symptoms: e.target.value }))}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
               </div>
               <div className="flex justify-end space-x-3 mt-6">
                 <button
@@ -693,7 +621,7 @@ const BookAppointment = () => {
             <div className="mt-3">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Postpone Appointment</h3>
               <p className="text-sm text-gray-600 mb-4">
-                Current appointment: {new Date(selectedAppointment.date).toLocaleDateString()} at {selectedAppointment.time}
+                Current appointment: {new Date(selectedAppointment.date).toLocaleDateString()}
               </p>
               <div className="space-y-4">
                 <div>
@@ -705,19 +633,6 @@ const BookAppointment = () => {
                     min={getMinDate()}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">New Time</label>
-                  <select
-                    value={postponeFormData.time}
-                    onChange={(e) => setPostponeFormData(prev => ({ ...prev, time: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="">Select Time</option>
-                    {getAvailableTimes().map(time => (
-                      <option key={time} value={time}>{time}</option>
-                    ))}
-                  </select>
                 </div>
               </div>
               <div className="flex justify-end space-x-3 mt-6">
@@ -752,7 +667,7 @@ const BookAppointment = () => {
               <h3 className="text-lg leading-6 font-medium text-gray-900">Cancel Appointment</h3>
               <div className="mt-2 px-7 py-3">
                 <p className="text-sm text-gray-500">
-                  Are you sure you want to cancel your appointment with {selectedAppointment.doctorName} on {new Date(selectedAppointment.date).toLocaleDateString()} at {selectedAppointment.time}?
+                  Are you sure you want to cancel your appointment with {selectedAppointment.doctorName} on {new Date(selectedAppointment.date).toLocaleDateString()}?
                 </p>
               </div>
               <div className="flex justify-center space-x-3 mt-4">
