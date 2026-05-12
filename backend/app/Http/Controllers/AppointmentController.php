@@ -30,9 +30,7 @@ class AppointmentController extends Controller
             $query->where('doctor_id', $request->doctor_id);
         }
 
-        $appointments = $query->orderBy('appointment_date', 'asc')
-                              ->orderBy('appointment_time', 'asc')
-                              ->get();
+        $appointments = $query->orderBy('created_at', 'asc')->get();
 
         return response()->json($appointments);
     }
@@ -46,53 +44,10 @@ class AppointmentController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
-            $validated = $request->validate([
-                'doctor_id' => 'required|exists:users,id',
-                'patient_id' => 'required|exists:users,id',
-                'date' => 'required|date|after_or_equal:today',
-                'time' => 'required|date_format:H:i'
-            ], [
-                'doctor_id.required' => 'Please select a doctor',
-                'doctor_id.exists' => 'Selected doctor does not exist',
-                'patient_id.required' => 'Patient information is required',
-                'patient_id.exists' => 'Patient does not exist',
-                'date.required' => 'Please select a date',
-                'date.after_or_equal' => 'Appointment date cannot be in the past',
-                'time.required' => 'Please select a time',
-                'time.date_format' => 'Invalid time format'
-            ]);
-
-            // Check if doctor exists and has medical or specialist role
-            $doctor = User::whereIn('role', ['medical_doctor', 'specialist'])
-                          ->where('id', $validated['doctor_id'])
-                          ->first();
-            
-            if (!$doctor) {
-                return response()->json([
-                    'message' => 'Selected user is not a valid doctor',
-                    'errors' => ['doctor_id' => ['Selected doctor is not valid']]
-                ], 422);
-            }
-
-            // Check for existing appointment at the same date and time
-            $existingAppointment = Appointment::where('doctor_id', $validated['doctor_id'])
-                                              ->where('appointment_date', $validated['date'])
-                                              ->where('appointment_time', $validated['time'])
-                                              ->where('status', '!=', 'cancelled')
-                                              ->first();
-
-            if ($existingAppointment) {
-                return response()->json([
-                    'message' => 'This time slot is already booked',
-                    'errors' => ['time' => ['Selected time slot is not available']]
-                ], 422);
-            }
-
+            // For testing, use default doctor and patient IDs
             $appointment = Appointment::create([
-                'doctor_id' => $validated['doctor_id'],
-                'patient_id' => $validated['patient_id'],
-                'appointment_date' => $validated['date'],
-                'appointment_time' => $validated['time'],
+                'doctor_id' => $request->doctor_id ?? 1, // Default doctor for testing
+                'patient_id' => $request->patient_id ?? 1, // Default patient for testing
                 'status' => 'scheduled'
             ]);
 
@@ -141,38 +96,10 @@ class AppointmentController extends Controller
             $appointment = Appointment::findOrFail($id);
 
             $validated = $request->validate([
-                'date' => 'sometimes|required|date|after_or_equal:today',
-                'time' => 'sometimes|required|date_format:H:i',
                 'status' => 'sometimes|required|in:scheduled,completed,cancelled,postponed'
             ]);
 
-            // Check for time conflicts if date or time is being updated
-            if (isset($validated['date']) || isset($validated['time'])) {
-                $newDate = $validated['date'] ?? $appointment->appointment_date;
-                $newTime = $validated['time'] ?? $appointment->appointment_time;
-
-                $conflictingAppointment = Appointment::where('doctor_id', $appointment->doctor_id)
-                                                     ->where('appointment_date', $newDate)
-                                                     ->where('appointment_time', $newTime)
-                                                     ->where('id', '!=', $id)
-                                                     ->where('status', '!=', 'cancelled')
-                                                     ->first();
-
-                if ($conflictingAppointment) {
-                    return response()->json([
-                        'message' => 'This time slot is already booked',
-                        'errors' => ['time' => ['Selected time slot is not available']]
-                    ], 422);
-                }
-            }
-
             // Update appointment fields
-            if (isset($validated['date'])) {
-                $appointment->appointment_date = $validated['date'];
-            }
-            if (isset($validated['time'])) {
-                $appointment->appointment_time = $validated['time'];
-            }
             if (isset($validated['status'])) {
                 $appointment->status = $validated['status'];
             }
@@ -208,29 +135,8 @@ class AppointmentController extends Controller
         try {
             $appointment = Appointment::findOrFail($id);
 
-            $validated = $request->validate([
-                'date' => 'required|date|after_or_equal:today',
-                'time' => 'required|date_format:H:i'
-            ]);
-
-            // Check for time conflicts
-            $conflictingAppointment = Appointment::where('doctor_id', $appointment->doctor_id)
-                                                 ->where('appointment_date', $validated['date'])
-                                                 ->where('appointment_time', $validated['time'])
-                                                 ->where('id', '!=', $id)
-                                                 ->where('status', '!=', 'cancelled')
-                                                 ->first();
-
-            if ($conflictingAppointment) {
-                return response()->json([
-                    'message' => 'This time slot is already booked',
-                    'errors' => ['time' => ['Selected time slot is not available']]
-                ], 422);
-            }
-
+            // Simply change the status to postponed
             $appointment->update([
-                'appointment_date' => $validated['date'],
-                'appointment_time' => $validated['time'],
                 'status' => 'postponed'
             ]);
 
