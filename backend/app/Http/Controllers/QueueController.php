@@ -224,10 +224,24 @@ class QueueController extends Controller
      */
     private function prioritizeAppointments(Collection $appointments): Collection
     {
-        return $appointments->map(function ($appointment) {
+        // Separate appointments by age groups
+        $highPriorityAppointments = $appointments->filter(function ($appointment) {
             $patientAge = $appointment->patient->age ?? 0;
-            $priorityLevel = $this->determinePriorityLevel($patientAge);
-            
+            return $patientAge >= 50;
+        });
+        
+        $normalPriorityAppointments = $appointments->filter(function ($appointment) {
+            $patientAge = $appointment->patient->age ?? 0;
+            return $patientAge < 50;
+        });
+        
+        // Sort each group by creation time
+        $highPrioritySorted = $highPriorityAppointments->sortBy('created_at')->values();
+        $normalPrioritySorted = $normalPriorityAppointments->sortBy('created_at')->values();
+        
+        // Assign queue numbers to each group separately
+        $highPriorityWithNumbers = $highPrioritySorted->map(function ($appointment, $index) {
+            $patientAge = $appointment->patient->age ?? 0;
             return [
                 'appointment_id' => $appointment->id,
                 'patient' => [
@@ -236,18 +250,33 @@ class QueueController extends Controller
                     'age' => $patientAge,
                     'phone_number' => $appointment->patient->phone_number
                 ],
-                'reason' => $appointment->reason,
-                'symptoms' => $appointment->symptoms,
-                'priority_level' => $priorityLevel,
+                'priority_level' => 'high',
+                'queue_number' => $index + 1, // Numbers 1-10 for high priority
                 'priority_score' => $this->calculatePriorityScore($patientAge)
             ];
-        })->sortBy([
-            ['priority_level', 'asc'], // high priority first
-            ['priority_score', 'asc'], // lower score (earlier timestamp) first
-            ['created_at', 'asc'] // chronological order as tiebreaker
-        ])->values();
+        });
+        
+        $normalPriorityWithNumbers = $normalPrioritySorted->map(function ($appointment, $index) {
+            $patientAge = $appointment->patient->age ?? 0;
+            return [
+                'appointment_id' => $appointment->id,
+                'patient' => [
+                    'id' => $appointment->patient->id,
+                    'name' => $appointment->patient->name,
+                    'age' => $patientAge,
+                    'phone_number' => $appointment->patient->phone_number
+                ],
+                'priority_level' => 'normal',
+                'queue_number' => $index + 11, // Numbers 11+ for normal priority
+                'priority_score' => $this->calculatePriorityScore($patientAge)
+            ];
+        });
+        
+        // Combine the queues (high priority first)
+        return $highPriorityWithNumbers->concat($normalPriorityWithNumbers);
     }
 
+    
     /**
      * Determine priority level based on age
      *
@@ -300,12 +329,12 @@ class QueueController extends Controller
      */
     private function getQueuePosition(Collection $queue, ?int $appointmentId = null, ?int $patientId = null): ?int
     {
-        foreach ($queue as $index => $item) {
+        foreach ($queue as $item) {
             if ($appointmentId && $item['appointment_id'] === $appointmentId) {
-                return $index + 1;
+                return $item['queue_number'];
             }
             if ($patientId && $item['patient']['id'] === $patientId) {
-                return $index + 1;
+                return $item['queue_number'];
             }
         }
         
