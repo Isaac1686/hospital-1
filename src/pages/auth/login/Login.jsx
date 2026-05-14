@@ -97,18 +97,21 @@ const Login = () => {
           navigate('/medical/dashboard');
           break;
         case 'specialist':
+        case 'specialist':
           navigate('/specialist/dashboard');
           break;
         case 'pharmacy':
+        case 'pharmacist':
           navigate('/pharmacy/dashboard');
           break;
         case 'laboratory':
+        case 'laboratorist':
           navigate('/laboratory/dashboard');
           break;
         default:
           navigate('/patient/dashboard');
       }
-    } catch (error) {
+    } catch {
       setErrors({ general: 'Login failed. Please try again.' });
     } finally {
       setIsLoading(false);
