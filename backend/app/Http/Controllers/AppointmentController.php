@@ -44,10 +44,23 @@ class AppointmentController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
-            // For testing, use default doctor and patient IDs
+            $validated = $request->validate([
+                'doctor_id' => 'required|exists:users,id',
+                'patient_id' => 'required|exists:users,id',
+                'appointment_date' => 'required|date|after_or_equal:today',
+                'appointment_time' => 'nullable|date_format:H:i',
+                'reason' => 'nullable|string|max:255',
+                'symptoms' => 'nullable|string|max:1000'
+            ]);
+
+            // Create appointment with all required fields
             $appointment = Appointment::create([
-                'doctor_id' => $request->doctor_id ?? 1, // Default doctor for testing
-                'patient_id' => $request->patient_id ?? 1, // Default patient for testing
+                'doctor_id' => $validated['doctor_id'],
+                'patient_id' => $validated['patient_id'],
+                'appointment_date' => $validated['appointment_date'],
+                'appointment_time' => $validated['appointment_time'] ?? null,
+                'reason' => $validated['reason'] ?? 'General consultation',
+                'symptoms' => $validated['symptoms'] ?? null,
                 'status' => 'scheduled'
             ]);
 

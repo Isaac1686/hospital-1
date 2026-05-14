@@ -3,37 +3,117 @@ import { Link, useNavigate } from 'react-router-dom';
 
 const MedicalDoctorDashboard = () => {
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [stats, setStats] = useState({
     totalPatients: 0,
     appointmentsToday: 0
   });
+  const [queueStats, setQueueStats] = useState({
+    totalPatients: 0,
+    priorityPatients: 0,
+    normalPatients: 0
+  });
   const [recentAppointments, setRecentAppointments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const formatTo12Hour = (time24) => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':');
+    let hour = parseInt(hours, 10);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    if (hour === 0) hour = 12;
+    if (hour > 12) hour -= 12;
+    return `${hour.toString().padStart(2, '0')}:${minutes} ${period}`;
+  };
+
   useEffect(() => {
-    // Simulate loading data
-    setTimeout(() => {
-      setStats({
-        totalPatients: 156,
-        appointmentsToday: 8
-      });
-      
-      setRecentAppointments([
-        { id: 1, patientName: 'John Doe', time: '09:00 AM', type: 'Regular Checkup', status: 'confirmed' },
-        { id: 2, patientName: 'Jane Smith', time: '10:30 AM', type: 'Follow-up', status: 'confirmed' },
-        { id: 3, patientName: 'Robert Johnson', time: '11:15 AM', type: 'Emergency', status: 'in-progress' },
-        { id: 4, patientName: 'Emily Davis', time: '02:00 PM', type: 'Consultation', status: 'pending' },
-        { id: 5, patientName: 'Michael Wilson', time: '03:30 PM', type: 'Regular Checkup', status: 'confirmed' }
-      ]);
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) {
+      navigate('/login');
+      return;
+    }
+
+    const currentUser = JSON.parse(storedUser);
+    setUser(currentUser);
+
+    const fetchDashboardData = async () => {
+      const today = new Date().toISOString().split('T')[0];
+
+      try {
+        const appointmentResponse = await fetch(`http://localhost:8000/api/appointments?doctor_id=${currentUser.id}`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          }
+        );
+
+        if (appointmentResponse.ok) {
+          const appointments = await appointmentResponse.json();
+          const patientIds = new Set(appointments.map(apt => apt.patient?.id).filter(Boolean));
+          const todaysAppointments = appointments.filter(apt => {
+            if (!apt.appointment_date) return false;
+            return apt.appointment_date.split('T')[0] === today || apt.appointment_date === today;
+          });
+
+          setStats({
+            totalPatients: patientIds.size,
+            appointmentsToday: todaysAppointments.length
+          });
+
+          const sortedAppointments = todaysAppointments
+            .sort((a, b) => {
+              const timeA = a.appointment_time || '00:00';
+              const timeB = b.appointment_time || '00:00';
+              return timeA.localeCompare(timeB);
+            })
+            .slice(0, 5)
+            .map((appointment) => ({
+              id: appointment.id,
+              patientName: appointment.patient?.name || 'Unknown Patient',
+              time: appointment.appointment_time ? formatTo12Hour(appointment.appointment_time) : 'TBD',
+              type: appointment.reason || 'Consultation',
+              status: appointment.status || 'pending'
+            }));
+
+          setRecentAppointments(sortedAppointments);
+        }
+      } catch (error) {
+        console.error('Error fetching medical doctor appointments:', error);
+      }
+
+      try {
+        const queueResponse = await fetch(`http://localhost:8000/api/queue/doctor?doctor_id=${currentUser.id}&date=${today}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+
+        if (queueResponse.ok) {
+          const queueData = await queueResponse.json();
+          setQueueStats({
+            totalPatients: queueData.total_patients || 0,
+            priorityPatients: queueData.priority_patients || 0,
+            normalPatients: queueData.normal_patients || 0
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching doctor queue data:', error);
+      }
+
       setIsLoading(false);
-    }, 1000);
-  }, []);
+    };
+
+    fetchDashboardData();
+  }, [navigate]);
 
   const handleLogout = () => {
     // Clear any authentication tokens or user data
     localStorage.removeItem('authToken');
     localStorage.removeItem('userData');
-    
+
     // Navigate to login page
     navigate('/login');
   };
@@ -45,7 +125,7 @@ const MedicalDoctorDashboard = () => {
 
   const handleViewPatientRecords = () => {
     // Navigate to patient records page
-    navigate('/patients');
+    navigate('/patient/medical-records');
   };
 
   const handleViewAppointment = (appointmentId) => {
@@ -55,9 +135,9 @@ const MedicalDoctorDashboard = () => {
 
   const handleStartAppointment = (appointmentId) => {
     // Update appointment status to in-progress
-    setRecentAppointments(prev => 
-      prev.map(apt => 
-        apt.id === appointmentId 
+    setRecentAppointments(prev =>
+      prev.map(apt =>
+        apt.id === appointmentId
           ? { ...apt, status: 'in-progress' }
           : apt
       )
@@ -66,9 +146,9 @@ const MedicalDoctorDashboard = () => {
 
   const handleCompleteAppointment = (appointmentId) => {
     // Update appointment status to completed
-    setRecentAppointments(prev => 
-      prev.map(apt => 
-        apt.id === appointmentId 
+    setRecentAppointments(prev =>
+      prev.map(apt =>
+        apt.id === appointmentId
           ? { ...apt, status: 'completed' }
           : apt
       )
@@ -144,9 +224,9 @@ const MedicalDoctorDashboard = () => {
           <div className="flex justify-between items-center py-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Medical Dashboard</h1>
-              <p className="text-sm text-gray-600">Manage patients and appointments</p>
+              <p className="text-sm text-gray-600">Welcome back{user ? `, Dr. ${user.name}` : ''}. Manage patients and appointments.</p>
             </div>
-            <button 
+            <button
               onClick={handleLogout}
               className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center transition-colors duration-200"
             >
@@ -190,8 +270,21 @@ const MedicalDoctorDashboard = () => {
               </div>
             </div>
           </div>
+        </div>
 
-
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <p className="text-sm font-medium text-gray-600">Scheduled Today</p>
+            <p className="text-2xl font-bold text-gray-900">{queueStats.totalPatients}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <p className="text-sm font-medium text-gray-600">Priority Patients</p>
+            <p className="text-2xl font-bold text-green-900">{queueStats.priorityPatients}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <p className="text-sm font-medium text-gray-600">Normal Patients</p>
+            <p className="text-2xl font-bold text-gray-900">{queueStats.normalPatients}</p>
+          </div>
         </div>
 
         {/* Recent Appointments Table */}
@@ -240,14 +333,14 @@ const MedicalDoctorDashboard = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button 
+                      <button
                         onClick={() => handleViewAppointment(appointment.id)}
                         className="text-indigo-600 hover:text-indigo-900 mr-3"
                       >
                         View
                       </button>
                       {appointment.status === 'confirmed' && (
-                        <button 
+                        <button
                           onClick={() => handleStartAppointment(appointment.id)}
                           className="text-green-600 hover:text-green-900 mr-3"
                         >
@@ -255,7 +348,7 @@ const MedicalDoctorDashboard = () => {
                         </button>
                       )}
                       {appointment.status === 'in-progress' && (
-                        <button 
+                        <button
                           onClick={() => handleCompleteAppointment(appointment.id)}
                           className="text-blue-600 hover:text-blue-900"
                         >
@@ -277,7 +370,7 @@ const MedicalDoctorDashboard = () => {
               <h3 className="text-lg font-medium text-gray-900">Quick Actions</h3>
             </div>
             <div className="p-6 space-y-3">
-              <button 
+              <button
                 onClick={handleGeneratePrescription}
                 className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
               >
@@ -288,7 +381,7 @@ const MedicalDoctorDashboard = () => {
                   <span className="text-sm font-medium text-gray-900">Generate Prescription</span>
                 </div>
               </button>
-              <button 
+              <button
                 onClick={handleViewPatientRecords}
                 className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
               >
@@ -318,7 +411,7 @@ const MedicalDoctorDashboard = () => {
                       <p className="text-xs text-gray-500">Last visit: 2 days ago</p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => handleViewPatient('John Doe')}
                     className="text-indigo-600 hover:text-indigo-900 text-sm"
                   >
@@ -335,7 +428,7 @@ const MedicalDoctorDashboard = () => {
                       <p className="text-xs text-gray-500">Last visit: 1 week ago</p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => handleViewPatient('Jane Smith')}
                     className="text-indigo-600 hover:text-indigo-900 text-sm"
                   >
@@ -352,7 +445,7 @@ const MedicalDoctorDashboard = () => {
                       <p className="text-xs text-gray-500">Last visit: 2 weeks ago</p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => handleViewPatient('Robert Johnson')}
                     className="text-indigo-600 hover:text-indigo-900 text-sm"
                   >

@@ -3,35 +3,96 @@ import { Link, useNavigate } from 'react-router-dom';
 
 const SpecialistDoctorDashboard = () => {
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [stats, setStats] = useState({
     totalPatients: 0,
     appointmentsToday: 0
   });
+  const [queueStats, setQueueStats] = useState({
+    totalPatients: 0,
+    priorityPatients: 0,
+    normalPatients: 0
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setTimeout(() => {
-      setStats({
-        totalPatients: 89,
-        appointmentsToday: 6
-      });
-      
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) {
+      navigate('/login');
+      return;
+    }
+
+    const currentUser = JSON.parse(storedUser);
+    setUser(currentUser);
+
+    const fetchDashboardData = async () => {
+      const today = new Date().toISOString().split('T')[0];
+
+      try {
+        const appointmentResponse = await fetch(`http://localhost:8000/api/appointments?doctor_id=${currentUser.id}`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          }
+        );
+
+        if (appointmentResponse.ok) {
+          const appointments = await appointmentResponse.json();
+          const uniquePatientIds = new Set(appointments.map(apt => apt.patient?.id).filter(Boolean));
+          const todaysAppointments = appointments.filter(apt => {
+            if (!apt.appointment_date) return false;
+            return apt.appointment_date.split('T')[0] === today || apt.appointment_date === today;
+          });
+
+          setStats({
+            totalPatients: uniquePatientIds.size,
+            appointmentsToday: todaysAppointments.length
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching specialist doctor appointments:', error);
+      }
+
+      try {
+        const queueResponse = await fetch(`http://localhost:8000/api/queue/doctor?doctor_id=${currentUser.id}&date=${today}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+
+        if (queueResponse.ok) {
+          const queueData = await queueResponse.json();
+          setQueueStats({
+            totalPatients: queueData.total_patients || 0,
+            priorityPatients: queueData.priority_patients || 0,
+            normalPatients: queueData.normal_patients || 0
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching doctor queue data:', error);
+      }
+
       setIsLoading(false);
-    }, 1000);
-  }, []);
+    };
+
+    fetchDashboardData();
+  }, [navigate]);
 
   const handleLogout = () => {
     // Clear any authentication tokens or user data
     localStorage.removeItem('authToken');
     localStorage.removeItem('userData');
-    
+
     // Navigate to login page
     navigate('/login');
   };
 
   const handleViewPatientRecords = () => {
     // Navigate to patient records page
-    navigate('/patients');
+    navigate('/patient/medical-records');
   };
 
   const handleSpecializationClick = (specialization) => {
@@ -58,9 +119,9 @@ const SpecialistDoctorDashboard = () => {
           <div className="flex justify-between items-center py-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Specialist Dashboard</h1>
-              <p className="text-sm text-gray-600">Manage specialist consultations and referrals</p>
+              <p className="text-sm text-gray-600">Welcome back{user ? `, Dr. ${user.name}` : ''}. Manage specialist consultations and referrals.</p>
             </div>
-            <button 
+            <button
               onClick={handleLogout}
               className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center transition-colors duration-200"
             >
@@ -105,6 +166,20 @@ const SpecialistDoctorDashboard = () => {
 
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <p className="text-sm font-medium text-gray-600">Scheduled Today</p>
+            <p className="text-2xl font-bold text-gray-900">{queueStats.totalPatients}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <p className="text-sm font-medium text-gray-600">Priority Patients</p>
+            <p className="text-2xl font-bold text-green-900">{queueStats.priorityPatients}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <p className="text-sm font-medium text-gray-600">Normal Patients</p>
+            <p className="text-2xl font-bold text-gray-900">{queueStats.normalPatients}</p>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white rounded-lg shadow">
@@ -112,7 +187,7 @@ const SpecialistDoctorDashboard = () => {
               <h3 className="text-lg font-medium text-gray-900">Quick Actions</h3>
             </div>
             <div className="p-6 space-y-3">
-                            <button 
+              <button
                 onClick={handleViewPatientRecords}
                 className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
               >
@@ -132,35 +207,35 @@ const SpecialistDoctorDashboard = () => {
             </div>
             <div className="p-6">
               <div className="grid grid-cols-2 gap-4">
-                <button 
+                <button
                   onClick={() => handleSpecializationClick('Cardiology')}
                   className="text-center p-4 bg-red-50 rounded-lg hover:bg-red-100 transition-colors duration-200 cursor-pointer"
                 >
                   <p className="text-2xl font-bold text-red-600">Cardiology</p>
                   <p className="text-sm text-gray-600">12 patients</p>
                 </button>
-                <button 
+                <button
                   onClick={() => handleSpecializationClick('Neurology')}
                   className="text-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors duration-200 cursor-pointer"
                 >
                   <p className="text-2xl font-bold text-blue-600">Neurology</p>
                   <p className="text-sm text-gray-600">8 patients</p>
                 </button>
-                <button 
+                <button
                   onClick={() => handleSpecializationClick('Orthopedics')}
                   className="text-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors duration-200 cursor-pointer"
                 >
                   <p className="text-2xl font-bold text-green-600">Orthopedics</p>
                   <p className="text-sm text-gray-600">15 patients</p>
                 </button>
-                <button 
+                <button
                   onClick={() => handleSpecializationClick('Pediatrics')}
                   className="text-center p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors duration-200 cursor-pointer"
                 >
                   <p className="text-2xl font-bold text-yellow-600">Pediatrics</p>
                   <p className="text-sm text-gray-600">10 patients</p>
                 </button>
-                <button 
+                <button
                   onClick={() => handleSpecializationClick('Dermatology')}
                   className="text-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors duration-200 cursor-pointer"
                 >
