@@ -1,7 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+
+/** Label for the logged-in doctor (from API / localStorage user object). */
+function getLoggedInDoctorLabel(user) {
+  if (!user || typeof user !== 'object') return null;
+  const rawName = [user.name, user.full_name, user.fullName].find(
+    (v) => typeof v === 'string' && v.trim()
+  );
+  if (rawName) {
+    const trimmed = rawName.trim();
+    const withoutHonorific = trimmed.replace(/^(dr\.?|doctor)\s+/i, '').trim();
+    const display = withoutHonorific || trimmed;
+    return `Dr. ${display}`;
+  }
+  if (typeof user.email === 'string' && user.email.includes('@')) {
+    return `Dr. ${user.email.split('@')[0]}`;
+  }
+  return null;
+}
 
 const MedicalDoctorDashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalPatients: 0,
     appointmentsToday: 0,
@@ -10,6 +29,14 @@ const MedicalDoctorDashboard = () => {
   });
   const [recentAppointments, setRecentAppointments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [user] = useState(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
     // Simulate loading data
@@ -20,7 +47,7 @@ const MedicalDoctorDashboard = () => {
         pendingReports: 12,
         completedConsultations: 89
       });
-      
+
       setRecentAppointments([
         { id: 1, patientName: 'John Doe', time: '09:00 AM', type: 'Regular Checkup', status: 'confirmed' },
         { id: 2, patientName: 'Jane Smith', time: '10:30 AM', type: 'Follow-up', status: 'confirmed' },
@@ -31,6 +58,13 @@ const MedicalDoctorDashboard = () => {
       setIsLoading(false);
     }, 1000);
   }, []);
+
+  const doctorLabel = getLoggedInDoctorLabel(user);
+
+  const handleSignOut = () => {
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -96,14 +130,25 @@ const MedicalDoctorDashboard = () => {
           <div className="flex justify-between items-center py-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Medical Dashboard</h1>
-              <p className="text-sm text-gray-600">Manage patients and appointments</p>
+              <p className="text-sm text-gray-600 mt-0.5">
+                {doctorLabel
+                  ? `Welcome back, ${doctorLabel}`
+                  : 'Manage patients and appointments'}
+              </p>
             </div>
-            <div className="flex space-x-3">
-              <button className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors">
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+              <button type="button" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium">
                 New Appointment
               </button>
-              <button className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+              <button type="button" className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium">
                 Add Patient
+              </button>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition-colors text-sm font-medium"
+              >
+                Sign out
               </button>
             </div>
           </div>
