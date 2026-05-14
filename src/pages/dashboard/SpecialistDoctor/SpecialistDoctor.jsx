@@ -41,12 +41,13 @@ function initialsFromName(name) {
 const SpecialistDoctorDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [stats, setStats] = useState({
     totalPatients: 0,
     appointmentsToday: 0,
     pendingReports: 0,
     completedConsultations: 0
-    appointmentsToday: 0
   });
   const [recentAppointments, setRecentAppointments] = useState([]);
   const [recentPatients, setRecentPatients] = useState([]);
@@ -268,6 +269,13 @@ const SpecialistDoctorDashboard = () => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  const handleLogout = () => {
+    // Clear any authentication tokens or user data
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+
+    // Navigate to login page
+    navigate('/login');
   };
 
   const getStatusText = (status) => {
@@ -289,6 +297,9 @@ const SpecialistDoctorDashboard = () => {
       default:
         return status ? String(status) : 'Unknown';
     }
+  const handleViewPatientRecords = () => {
+    // Navigate to patient records page
+    navigate('/patient/medical-records');
   };
 
   const getTypeColor = (type) => {
@@ -306,6 +317,9 @@ const SpecialistDoctorDashboard = () => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  const handleSpecializationClick = (specialization) => {
+    // Navigate to specialization-specific patients
+    navigate(`/patients?specialization=${specialization.toLowerCase()}`);
   };
 
 
@@ -330,8 +344,8 @@ const SpecialistDoctorDashboard = () => {
               <p className="text-sm text-gray-600 mt-0.5">
                 {doctorLabel
                   ? `Welcome back, ${doctorLabel}`
-                  : 'Welcome back{user ? `, Dr. ${user.name}` : ''}. Manage specialist consultations and referrals.'}
-              </p>
+                  : 'Welcome back{user ? `, Dr. ${user.name}` : ''}. Manage specialist consultations and referrals'}
+              .</p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
               <button
@@ -354,6 +368,15 @@ const SpecialistDoctorDashboard = () => {
                 Sign out
               </button>
             </div>
+            <button
+              onClick={handleLogout}
+              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center transition-colors duration-200"
+            >
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+              </svg>
+              Logout
+            </button>
           </div>
         </div>
       </div>
@@ -409,6 +432,8 @@ const SpecialistDoctorDashboard = () => {
                 <p className="text-2xl font-bold text-gray-900">{stats.pendingReports}</p>
               </div>
             </div>
+            <p className="text-sm font-medium text-gray-600">Scheduled Today</p>
+            <p className="text-2xl font-bold text-gray-900">{queueStats.totalPatients}</p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
@@ -422,6 +447,8 @@ const SpecialistDoctorDashboard = () => {
                 <p className="text-2xl font-bold text-gray-900">{stats.completedConsultations}</p>
               </div>
             </div>
+            <p className="text-sm font-medium text-gray-600">Priority Patients</p>
+            <p className="text-2xl font-bold text-green-900">{queueStats.priorityPatients}</p>
           </div>
         </div>
 
@@ -508,6 +535,9 @@ const SpecialistDoctorDashboard = () => {
                 )}
               </tbody>
             </table>
+          <div className="bg-white rounded-lg shadow p-6">
+            <p className="text-sm font-medium text-gray-600">Normal Patients</p>
+            <p className="text-2xl font-bold text-gray-900">{queueStats.normalPatients}</p>
           </div>
         </div>
 
@@ -541,14 +571,6 @@ const SpecialistDoctorDashboard = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                   </svg>
                   <span className="text-sm font-medium text-gray-900">View Patient Records</span>
-                </div>
-              </button>
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h-1m1-4v-6h1m1 6h-1m-6 4h7m2 4H7a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002 2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">Send Referral</span>
                 </div>
               </button>
             </div>
@@ -600,6 +622,43 @@ const SpecialistDoctorDashboard = () => {
                   })}
                 </div>
               )}
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => handleSpecializationClick('Cardiology')}
+                  className="text-center p-4 bg-red-50 rounded-lg hover:bg-red-100 transition-colors duration-200 cursor-pointer"
+                >
+                  <p className="text-2xl font-bold text-red-600">Cardiology</p>
+                  <p className="text-sm text-gray-600">12 patients</p>
+                </button>
+                <button
+                  onClick={() => handleSpecializationClick('Neurology')}
+                  className="text-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors duration-200 cursor-pointer"
+                >
+                  <p className="text-2xl font-bold text-blue-600">Neurology</p>
+                  <p className="text-sm text-gray-600">8 patients</p>
+                </button>
+                <button
+                  onClick={() => handleSpecializationClick('Orthopedics')}
+                  className="text-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors duration-200 cursor-pointer"
+                >
+                  <p className="text-2xl font-bold text-green-600">Orthopedics</p>
+                  <p className="text-sm text-gray-600">15 patients</p>
+                </button>
+                <button
+                  onClick={() => handleSpecializationClick('Pediatrics')}
+                  className="text-center p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors duration-200 cursor-pointer"
+                >
+                  <p className="text-2xl font-bold text-yellow-600">Pediatrics</p>
+                  <p className="text-sm text-gray-600">10 patients</p>
+                </button>
+                <button
+                  onClick={() => handleSpecializationClick('Dermatology')}
+                  className="text-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors duration-200 cursor-pointer"
+                >
+                  <p className="text-2xl font-bold text-purple-600">Dermatology</p>
+                  <p className="text-sm text-gray-600">6 patients</p>
+                </button>
+              </div>
             </div>
           </div>
         </div>
