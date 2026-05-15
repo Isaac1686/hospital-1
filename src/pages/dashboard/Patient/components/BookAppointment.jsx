@@ -125,7 +125,11 @@ const BookAppointment = () => {
           doctorId: apt.doctor_id,
           doctorName: apt.doctor?.name || 'Unknown Doctor',
           doctorSpecialty: apt.doctor?.category || 'General',
-          date: apt.created_at ? new Date(apt.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
+          date: apt.appointment_date
+            ? new Date(`${apt.appointment_date}T12:00:00`).toLocaleDateString()
+            : apt.created_at
+              ? new Date(apt.created_at).toLocaleDateString()
+              : new Date().toLocaleDateString(),
           time: apt.created_at ? new Date(apt.created_at).toTimeString().substring(0, 5) : '',
           status: apt.status
         }));
@@ -206,7 +210,8 @@ const BookAppointment = () => {
         },
         body: JSON.stringify({
           doctor_id: formData.doctorId,
-          patient_id: user?.id
+          patient_id: user?.id,
+          appointment_date: formData.date
         })
       });
 
@@ -349,7 +354,7 @@ const BookAppointment = () => {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          date: postponeFormData.date
+          appointment_date: postponeFormData.date
         })
       });
 

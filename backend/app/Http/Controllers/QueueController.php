@@ -27,11 +27,12 @@ class QueueController extends Controller
             $doctorId = $validated['doctor_id'];
             $date = $validated['date'] ?? now()->toDateString();
 
-            // Get appointments for the doctor on specified date (using created_at timestamp)
+            Appointment::expirePastAppointments();
+
             $appointments = Appointment::with(['patient', 'doctor'])
                 ->where('doctor_id', $doctorId)
-                ->whereDate('created_at', $date)
-                ->where('status', 'scheduled')
+                ->forDate($date)
+                ->where('status', Appointment::STATUS_SCHEDULED)
                 ->get();
 
             // Prioritize appointments based on patient age
@@ -78,8 +79,8 @@ class QueueController extends Controller
             foreach ($doctors as $doctor) {
                 $appointments = Appointment::with(['patient', 'doctor'])
                     ->where('doctor_id', $doctor->id)
-                    ->whereDate('created_at', $date)
-                    ->where('status', 'scheduled')
+                    ->forDate($date)
+                    ->where('status', Appointment::STATUS_SCHEDULED)
                     ->get();
 
                 $prioritizedQueue = $this->prioritizeAppointments($appointments);
@@ -139,16 +140,13 @@ class QueueController extends Controller
 
             // Get patient information to determine priority
             $patient = User::findOrFail($validated['patient_id']);
-            $priorityLevel = $this->determinePriorityLevel($patient->age);
+            $priorityLevel = $this->determinePriorityLevel((int) ($patient->age ?? 0));
 
-            // Create appointment without conflicts (using timestamp)
             $appointment = Appointment::create([
                 'doctor_id' => $validated['doctor_id'],
                 'patient_id' => $validated['patient_id'],
                 'appointment_date' => $validated['date'],
-                'reason' => $validated['reason'] ?? 'General consultation',
-                'symptoms' => $validated['symptoms'] ?? null,
-                'status' => 'scheduled'
+                'status' => Appointment::STATUS_SCHEDULED,
             ]);
 
             // Load relationships for response
@@ -182,7 +180,8 @@ class QueueController extends Controller
         try {
             $validated = $request->validate([
                 'patient_id' => 'required|exists:users,id',
-                'doctor_id' => 'required|exists:users,id'
+                'doctor_id' => 'required|exists:users,id',
+                'date' => 'nullable|date',
             ]);
 
             $patientId = $validated['patient_id'];
@@ -224,56 +223,51 @@ class QueueController extends Controller
      */
     private function prioritizeAppointments(Collection $appointments): Collection
     {
-        // Separate appointments by age groups
         $highPriorityAppointments = $appointments->filter(function ($appointment) {
-            $patientAge = $appointment->patient->age ?? 0;
-            return $patientAge >= 50;
+            return $this->patientAge($appointment) >= 50;
         });
-        
+
         $normalPriorityAppointments = $appointments->filter(function ($appointment) {
-            $patientAge = $appointment->patient->age ?? 0;
-            return $patientAge < 50;
+            return $this->patientAge($appointment) < 50;
         });
-        
-        // Sort each group by creation time
+
         $highPrioritySorted = $highPriorityAppointments->sortBy('created_at')->values();
         $normalPrioritySorted = $normalPriorityAppointments->sortBy('created_at')->values();
-        
-        // Assign queue numbers to each group separately
+
         $highPriorityWithNumbers = $highPrioritySorted->map(function ($appointment, $index) {
-            $patientAge = $appointment->patient->age ?? 0;
-            return [
-                'appointment_id' => $appointment->id,
-                'patient' => [
-                    'id' => $appointment->patient->id,
-                    'name' => $appointment->patient->name,
-                    'age' => $patientAge,
-                    'phone_number' => $appointment->patient->phone_number
-                ],
-                'priority_level' => 'high',
-                'queue_number' => $index + 1, // Numbers 1-10 for high priority
-                'priority_score' => $this->calculatePriorityScore($patientAge)
-            ];
+            return $this->formatQueueEntry($appointment, 'high', $index + 1);
         });
-        
+
         $normalPriorityWithNumbers = $normalPrioritySorted->map(function ($appointment, $index) {
-            $patientAge = $appointment->patient->age ?? 0;
-            return [
-                'appointment_id' => $appointment->id,
-                'patient' => [
-                    'id' => $appointment->patient->id,
-                    'name' => $appointment->patient->name,
-                    'age' => $patientAge,
-                    'phone_number' => $appointment->patient->phone_number
-                ],
-                'priority_level' => 'normal',
-                'queue_number' => $index + 11, // Numbers 11+ for normal priority
-                'priority_score' => $this->calculatePriorityScore($patientAge)
-            ];
+            return $this->formatQueueEntry($appointment, 'normal', $index + 11);
         });
-        
-        // Combine the queues (high priority first)
+
         return $highPriorityWithNumbers->concat($normalPriorityWithNumbers);
+    }
+
+    private function formatQueueEntry(Appointment $appointment, string $priorityLevel, int $queueNumber): array
+    {
+        $patient = $appointment->patient;
+        $patientAge = $this->patientAge($appointment);
+
+        return [
+            'appointment_id' => $appointment->id,
+            'patient' => [
+                'id' => $patient?->id,
+                'name' => $patient?->name ?? 'Unknown patient',
+                'age' => $patientAge,
+                'phone_number' => $patient?->phone_number,
+                'appointment_time' => $appointment->created_at?->format('H:i'),
+            ],
+            'priority_level' => $priorityLevel,
+            'queue_number' => $queueNumber,
+            'priority_score' => $this->calculatePriorityScore($patientAge),
+        ];
+    }
+
+    private function patientAge(Appointment $appointment): int
+    {
+        return (int) ($appointment->patient?->age ?? 0);
     }
 
     
@@ -283,21 +277,16 @@ class QueueController extends Controller
      * @param  int  $age
      * @return string
      */
-    private function determinePriorityLevel(int $age): string
+    private function determinePriorityLevel(int $age = 0): string
     {
         return $age >= 50 ? 'high' : 'normal';
     }
 
     /**
-     * Calculate priority score for sorting
-     *
-     * @param  int  $age
-     * @param  string  $time
-     * @return int
+     * Calculate priority score for sorting (lower = higher priority).
      */
     private function calculatePriorityScore(int $age): int
     {
-        // Only age-based priority since we're using timestamps
         return $age >= 50 ? 0 : 1000;
     }
 
@@ -312,8 +301,8 @@ class QueueController extends Controller
     {
         $appointments = Appointment::with(['patient', 'doctor'])
             ->where('doctor_id', $doctorId)
-            ->whereDate('created_at', $date)
-            ->where('status', 'scheduled')
+            ->forDate($date)
+            ->where('status', Appointment::STATUS_SCHEDULED)
             ->get();
 
         return $this->prioritizeAppointments($appointments);
@@ -333,7 +322,7 @@ class QueueController extends Controller
             if ($appointmentId && $item['appointment_id'] === $appointmentId) {
                 return $item['queue_number'];
             }
-            if ($patientId && $item['patient']['id'] === $patientId) {
+            if ($patientId && ($item['patient']['id'] ?? null) === $patientId) {
                 return $item['queue_number'];
             }
         }

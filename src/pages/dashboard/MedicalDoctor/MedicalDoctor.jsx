@@ -30,6 +30,20 @@ function formatTimeFromIso(iso) {
   return `${displayHour}:${m} ${period}`;
 }
 
+function formatAppointmentDate(appointmentDate, createdAt) {
+  const day = appointmentDate || (createdAt ? createdAt.slice(0, 10) : null);
+  if (!day) return '';
+  const d = new Date(`${day}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+}
+
+function isAppointmentToday(appointmentDate, createdAt) {
+  const day = appointmentDate || (createdAt ? createdAt.slice(0, 10) : null);
+  if (!day) return false;
+  const d = new Date(`${day}T12:00:00`);
+  return !Number.isNaN(d.getTime()) && d.toDateString() === new Date().toDateString();
+}
+
 function initialsFromName(name) {
   if (!name || typeof name !== 'string') return '?';
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -70,11 +84,8 @@ const MedicalDoctorDashboard = () => {
       }
 
       const data = await response.json();
-      const todayStr = new Date().toDateString();
 
-      const mapped = [...data]
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .map((apt) => ({
+      const mapped = data.map((apt) => ({
           id: apt.id,
           patientName:
             apt.patient?.name ||
@@ -85,17 +96,15 @@ const MedicalDoctorDashboard = () => {
           patientId: apt.patient_id,
           time: formatTimeFromIso(apt.created_at),
           bookedAt: apt.created_at,
-          dateLabel: apt.created_at
-            ? new Date(apt.created_at).toLocaleDateString()
-            : '',
+          dateLabel: formatAppointmentDate(apt.appointment_date, apt.created_at),
           type: 'Patient booking',
           status: apt.status
         }));
 
       setRecentAppointments(mapped);
 
-      const todayList = data.filter(
-        (apt) => apt.created_at && new Date(apt.created_at).toDateString() === todayStr
+      const todayList = data.filter((apt) =>
+        isAppointmentToday(apt.appointment_date, apt.created_at)
       );
 
       setStats({

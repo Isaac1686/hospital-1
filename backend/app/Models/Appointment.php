@@ -2,47 +2,78 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Appointment extends Model
 {
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
+    public const STATUS_SCHEDULED = 'scheduled';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_POSTPONED = 'postponed';
+    public const STATUS_EXPIRED = 'expired';
+
+    public const EXPIRABLE_STATUSES = [
+        self::STATUS_SCHEDULED,
+        self::STATUS_POSTPONED,
+    ];
+
     protected $fillable = [
         'patient_id',
         'doctor_id',
-        'status'
+        'status',
+        'appointment_date',
     ];
 
-    /**
-     * Get the patient that owns the appointment.
-     */
+    protected function casts(): array
+    {
+        return [
+            'appointment_date' => 'date',
+        ];
+    }
+
     public function patient(): BelongsTo
     {
         return $this->belongsTo(User::class, 'patient_id');
     }
 
-    /**
-     * Get the doctor that owns the appointment.
-     */
     public function doctor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'doctor_id');
     }
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
+     * Mark past-day scheduled/postponed appointments as expired.
      */
-    protected function casts(): array
+    public static function expirePastAppointments(?Carbon $asOf = null): int
     {
-        return [
-            'available' => 'boolean',
-        ];
+        $cutoff = ($asOf ?? now())->startOfDay();
+
+        return static::query()
+            ->whereIn('status', self::EXPIRABLE_STATUSES)
+            ->where('appointment_date', '<', $cutoff->toDateString())
+            ->update(['status' => self::STATUS_EXPIRED]);
+    }
+
+    /**
+     * Appointments visible on doctor dashboards: today and future, not expired.
+     */
+    public function scopeVisibleToDoctor(Builder $query): Builder
+    {
+        $today = now()->toDateString();
+
+        return $query
+            ->where('status', '!=', self::STATUS_EXPIRED)
+            ->where('appointment_date', '>=', $today);
+    }
+
+    /**
+     * Filter queue/list rows for a specific calendar day.
+     */
+    public function scopeForDate(Builder $query, string $date): Builder
+    {
+        return $query->whereDate('appointment_date', $date);
     }
 }

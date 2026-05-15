@@ -18,19 +18,24 @@ class AppointmentController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        Appointment::expirePastAppointments();
+
         $query = Appointment::with(['doctor', 'patient']);
 
-        // Filter by patient if patient_id is provided
         if ($request->has('patient_id')) {
             $query->where('patient_id', $request->patient_id);
         }
 
-        // Filter by doctor if doctor_id is provided
         if ($request->has('doctor_id')) {
-            $query->where('doctor_id', $request->doctor_id);
+            $query
+                ->where('doctor_id', $request->doctor_id)
+                ->visibleToDoctor();
         }
 
-        $appointments = $query->orderBy('created_at', 'asc')->get();
+        $appointments = $query
+            ->orderBy('appointment_date', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get();
 
         return response()->json($appointments);
     }
@@ -44,11 +49,17 @@ class AppointmentController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
-            // For testing, use default doctor and patient IDs
+            $validated = $request->validate([
+                'doctor_id' => 'required|exists:users,id',
+                'patient_id' => 'required|exists:users,id',
+                'appointment_date' => 'nullable|date|after_or_equal:today',
+            ]);
+
             $appointment = Appointment::create([
-                'doctor_id' => $request->doctor_id ?? 1, // Default doctor for testing
-                'patient_id' => $request->patient_id ?? 1, // Default patient for testing
-                'status' => 'scheduled'
+                'doctor_id' => $validated['doctor_id'],
+                'patient_id' => $validated['patient_id'],
+                'appointment_date' => $validated['appointment_date'] ?? now()->toDateString(),
+                'status' => Appointment::STATUS_SCHEDULED,
             ]);
 
             // Load relationships for response
@@ -96,8 +107,13 @@ class AppointmentController extends Controller
             $appointment = Appointment::findOrFail($id);
 
             $validated = $request->validate([
-                'status' => 'sometimes|required|in:scheduled,completed,cancelled,postponed'
+                'status' => 'sometimes|required|in:scheduled,completed,cancelled,postponed,expired',
+                'appointment_date' => 'sometimes|date|after_or_equal:today',
             ]);
+
+            if (isset($validated['appointment_date'])) {
+                $appointment->appointment_date = $validated['appointment_date'];
+            }
 
             // Update appointment fields
             if (isset($validated['status'])) {
@@ -135,9 +151,13 @@ class AppointmentController extends Controller
         try {
             $appointment = Appointment::findOrFail($id);
 
-            // Simply change the status to postponed
+            $validated = $request->validate([
+                'appointment_date' => 'required|date|after_or_equal:today',
+            ]);
+
             $appointment->update([
-                'status' => 'postponed'
+                'status' => Appointment::STATUS_POSTPONED,
+                'appointment_date' => $validated['appointment_date'],
             ]);
 
             // Load relationships for response
