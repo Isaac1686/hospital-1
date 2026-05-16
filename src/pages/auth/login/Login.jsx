@@ -27,7 +27,7 @@ const Login = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim()) {
@@ -35,25 +35,25 @@ const Login = () => {
     } else if (!emailRegex.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
-    
+
     if (!formData.password) {
       newErrors.password = 'Password is required';
     }
-    
+
     return newErrors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = validateForm();
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       // Make actual API call to backend
       const response = await fetch('http://localhost:8000/api/login', {
@@ -67,9 +67,9 @@ const Login = () => {
           password: formData.password
         })
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         if (data.errors) {
           // Convert Laravel validation errors to frontend format
@@ -83,10 +83,10 @@ const Login = () => {
         }
         return;
       }
-      
+
       // Store user info from backend response
       localStorage.setItem('user', JSON.stringify(data.user));
-      
+
       // Redirect based on user role
       const userRole = data.user.role || 'patient';
       switch (userRole) {
@@ -96,7 +96,6 @@ const Login = () => {
         case 'medical_doctor':
           navigate('/medical/dashboard');
           break;
-        case 'specialist':
         case 'specialist':
           navigate('/specialist/dashboard');
           break;
@@ -137,7 +136,7 @@ const Login = () => {
                 {errors.general}
               </div>
             )}
-            
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email Address
@@ -149,9 +148,8 @@ const Login = () => {
                   type="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    errors.email ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${errors.email ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="Enter your email address"
                   disabled={isLoading}
                 />
@@ -172,9 +170,8 @@ const Login = () => {
                   type="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    errors.password ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${errors.password ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="Enter your password"
                   disabled={isLoading}
                 />

@@ -10,8 +10,12 @@ use App\Http\Controllers\QueueController;
 Route::post('/register', [RegisterController::class, 'register']);
 Route::post('/login', [LoginController::class, 'login']);
 
+Route::post('/patients', [RegisterController::class, 'addPatient']);
+Route::get('/patients', [RegisterController::class, 'listPatients']);
+
 Route::apiResource('appointments', AppointmentController::class);
 Route::put('/appointments/{id}/postpone', [AppointmentController::class, 'postpone']);
+Route::post('/appointments/doctor/{doctor}/emergency-cancel', [AppointmentController::class, 'cancelDoctorAppointmentsDueToEmergency']);
 Route::get('/doctors', [DoctorController::class, 'index']);
 Route::get('/doctors/{id}', [DoctorController::class, 'show']);
 

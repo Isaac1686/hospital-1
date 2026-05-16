@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
@@ -77,6 +78,62 @@ class AppointmentController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to create appointment: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Cancel all scheduled appointments for a doctor due to an emergency.
+     *
+     * @param  int  $doctorId
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function cancelDoctorAppointmentsDueToEmergency(int $doctorId, Request $request): JsonResponse
+    {
+        try {
+            $doctor = User::findOrFail($doctorId);
+
+            if (!in_array($doctor->role, ['medical_doctor', 'specialist'])) {
+                return response()->json([
+                    'message' => 'Only doctors can trigger emergency appointment cancellations.'
+                ], 403);
+            }
+
+            $reason = $request->input('reason', 'Doctor emergency: appointments cancelled until emergency is resolved.');
+            $today = Carbon::today()->toDateString();
+
+            $appointments = Appointment::where('doctor_id', $doctorId)
+                ->where('status', 'scheduled')
+                ->whereDate('appointment_date', '>=', $today)
+                ->get();
+
+            if ($appointments->isEmpty()) {
+                return response()->json([
+                    'message' => 'No scheduled appointments found to cancel.'
+                ], 200);
+            }
+
+            foreach ($appointments as $appointment) {
+                $appointment->update([
+                    'status' => 'cancelled',
+                    'cancellation_reason' => $reason
+                ]);
+            }
+
+            return response()->json([
+                'message' => 'Emergency cancellation completed.',
+                'cancelled_count' => $appointments->count(),
+                'cancellation_reason' => $reason
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to cancel appointments: ' . $e->getMessage()
             ], 500);
         }
     }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AddPatientModal from '../../components/AddPatientModal';
 
 /** Label for the logged-in doctor (from session user object). */
 function getLoggedInDoctorLabel(user) {
@@ -54,6 +55,7 @@ const MedicalDoctorDashboard = () => {
   const [recentPatients, setRecentPatients] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
+  const [showAddPatientModal, setShowAddPatientModal] = useState(false);
 
   const loadDashboard = useCallback(async (doctorId) => {
     setFetchError('');
@@ -73,6 +75,16 @@ const MedicalDoctorDashboard = () => {
       }
 
       const data = await response.json();
+      const patientResponse = await fetch(
+        `http://localhost:8000/api/patients?doctor_id=${doctorId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          }
+        }
+      );
+      const patientsData = patientResponse.ok ? await patientResponse.json() : [];
       const todayStr = new Date().toDateString();
 
       const mapped = [...data]
@@ -102,7 +114,10 @@ const MedicalDoctorDashboard = () => {
       );
 
       setStats({
-        totalPatients: new Set(data.map((a) => a.patient_id)).size,
+        totalPatients: new Set([
+          ...data.map((a) => a.patient_id),
+          ...patientsData.map((patient) => patient.id)
+        ]).size,
         appointmentsToday: todayList.length,
         pendingReports: data.filter((a) => a.status === 'scheduled').length,
         completedConsultations: data.filter((a) => a.status === 'completed').length
@@ -126,8 +141,19 @@ const MedicalDoctorDashboard = () => {
           });
         }
       }
+      const appointmentPatients = [...byPatient.values()];
+      const appointmentPatientIds = new Set(appointmentPatients.map((item) => item.id));
+      const createdPatients = patientsData
+        .filter((patient) => !appointmentPatientIds.has(patient.id))
+        .map((patient) => ({
+          id: patient.id,
+          name: patient.name,
+          lastVisit: patient.created_at || null,
+          lastTime: patient.created_at ? new Date(patient.created_at).getTime() : 0
+        }));
+
       setRecentPatients(
-        [...byPatient.values()]
+        [...appointmentPatients, ...createdPatients]
           .sort((a, b) => b.lastTime - a.lastTime)
           .slice(0, 8)
       );
@@ -179,6 +205,62 @@ const MedicalDoctorDashboard = () => {
   const handleSignOut = () => {
     localStorage.removeItem('user');
     navigate('/login');
+  };
+
+  const handleAddPatient = () => {
+    setShowAddPatientModal(true);
+  };
+
+  const handlePatientAdded = (newPatient) => {
+    // Refresh dashboard data to include the new patient
+    if (user?.id) {
+      loadDashboard(user.id);
+    }
+  };
+
+  const handleEmergencyCancel = async () => {
+    if (!user?.id) return;
+    const confirmed = window.confirm(
+      'An emergency cancellation will cancel all your scheduled appointments. Continue?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/appointments/doctor/${user.id}/emergency-cancel`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          },
+          body: JSON.stringify({
+            reason: 'Doctor emergency: appointments cancelled until the emergency is resolved.'
+          })
+        }
+      );
+
+      const data = await response.json();
+      if (response.ok) {
+        alert(data.message || 'Scheduled appointments cancelled for emergency.');
+        loadDashboard(user.id);
+      } else {
+        alert(data.message || 'Failed to cancel appointments.');
+      }
+    } catch (error) {
+      console.error('Emergency cancel error:', error);
+      alert('Failed to perform emergency cancellation.');
+    }
+  };
+
+  const handleViewPatientRecords = () => {
+    navigate('/patient/medical-records');
+  };
+
+  const handleGeneratePrescription = () => {
+    // TODO: Implement prescription generation
+    alert('Prescription generation feature coming soon!');
   };
 
   const getStatusColor = (status) => {
@@ -262,18 +344,20 @@ const MedicalDoctorDashboard = () => {
               <p className="text-sm text-gray-600 mt-0.5">
                 {doctorLabel
                   ? `Welcome back, ${doctorLabel}`
-                  : 'Welcome back{user ? `, Dr. ${user.name}` : ''}. Manage patients and appointments.'}
+                  : `Welcome back${user ? `, Dr. ${user.name}` : ''}. Manage patients and appointments.`}
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
               <button
                 type="button"
-                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"
+                onClick={handleEmergencyCancel}
+                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
               >
-                New Appointment
+                Emergency Cancel
               </button>
               <button
                 type="button"
+                onClick={handleAddPatient}
                 className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
               >
                 Add Patient
@@ -520,6 +604,12 @@ const MedicalDoctorDashboard = () => {
           </div>
         </div>
       </div>
+
+      <AddPatientModal
+        isOpen={showAddPatientModal}
+        onClose={() => setShowAddPatientModal(false)}
+        onPatientAdded={handlePatientAdded}
+      />
     </div>
   );
 };

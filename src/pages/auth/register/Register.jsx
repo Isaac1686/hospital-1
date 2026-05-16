@@ -32,14 +32,14 @@ const Register = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     // Full Name validation
     if (!formData.fullName.trim()) {
       newErrors.fullName = 'Full name is required';
     } else if (formData.fullName.trim().length < 2) {
       newErrors.fullName = 'Full name must be at least 2 characters';
     }
-    
+
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim()) {
@@ -47,7 +47,7 @@ const Register = () => {
     } else if (!emailRegex.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
-    
+
     // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
@@ -56,16 +56,16 @@ const Register = () => {
     } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
       newErrors.password = 'Password must contain at least one uppercase letter, one lowercase letter, and one number';
     }
-    
+
     // Confirm Password validation
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
-    
+
     // Phone Number validation
-    const phoneRegex = /^[\d\s\-\+\(\)]+$/;
+    const phoneRegex = /^[\d\s\-+()]+$/;
     if (!formData.phoneNumber.trim()) {
       newErrors.phoneNumber = 'Phone number is required';
     } else if (!phoneRegex.test(formData.phoneNumber)) {
@@ -73,33 +73,33 @@ const Register = () => {
     } else if (formData.phoneNumber.replace(/\D/g, '').length < 10) {
       newErrors.phoneNumber = 'Phone number must be at least 10 digits';
     }
-    
+
     // Age validation
     if (!formData.age) {
       newErrors.age = 'Age is required';
     } else if (isNaN(formData.age) || formData.age < 1 || formData.age > 120) {
       newErrors.age = 'Please enter a valid age between 1 and 120';
     }
-    
+
     // Gender validation
     if (!formData.gender) {
       newErrors.gender = 'Please select a gender';
     }
-    
+
     return newErrors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = validateForm();
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       // Make actual API call to backend
       const response = await fetch('http://localhost:8000/api/register', {
@@ -118,9 +118,9 @@ const Register = () => {
           password_confirmation: formData.confirmPassword
         })
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         if (data.errors) {
           // Convert Laravel validation errors to frontend format
@@ -134,13 +134,14 @@ const Register = () => {
         }
         return;
       }
-      
+
       // Store user info from backend response
       localStorage.setItem('user', JSON.stringify(data.user));
-      
+
       // Redirect to login or dashboard
       navigate('/login');
     } catch (error) {
+      console.error('Registration error:', error);
       setErrors({ general: 'Registration failed. Please try again.' });
     } finally {
       setIsLoading(false);
@@ -166,7 +167,7 @@ const Register = () => {
                 {errors.general}
               </div>
             )}
-            
+
             <div>
               <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
                 Full Name
@@ -178,9 +179,8 @@ const Register = () => {
                   type="text"
                   value={formData.fullName}
                   onChange={handleChange}
-                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    errors.fullName ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${errors.fullName ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="Enter your full name"
                   disabled={isLoading}
                 />
@@ -201,9 +201,8 @@ const Register = () => {
                   type="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    errors.email ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${errors.email ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="Enter your email address"
                   disabled={isLoading}
                 />
@@ -224,9 +223,8 @@ const Register = () => {
                   type="tel"
                   value={formData.phoneNumber}
                   onChange={handleChange}
-                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    errors.phoneNumber ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${errors.phoneNumber ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="Enter your phone number"
                   disabled={isLoading}
                 />
@@ -247,9 +245,8 @@ const Register = () => {
                   type="number"
                   value={formData.age}
                   onChange={handleChange}
-                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    errors.age ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${errors.age ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="Enter your age"
                   disabled={isLoading}
                   min="1"
@@ -271,9 +268,8 @@ const Register = () => {
                   name="gender"
                   value={formData.gender}
                   onChange={handleChange}
-                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    errors.gender ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${errors.gender ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   disabled={isLoading}
                 >
                   <option value="">Select gender</option>
@@ -298,9 +294,8 @@ const Register = () => {
                   type="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    errors.password ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${errors.password ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="Create a password"
                   disabled={isLoading}
                 />
@@ -321,9 +316,8 @@ const Register = () => {
                   type="password"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="Confirm your password"
                   disabled={isLoading}
                 />

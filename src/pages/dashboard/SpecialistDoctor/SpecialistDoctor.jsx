@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import AddPatientModal from '../../components/AddPatientModal';
 
 /** Label for the logged-in specialist (from session user object). */
 function getLoggedInDoctorLabel(user) {
@@ -41,8 +42,6 @@ function initialsFromName(name) {
 const SpecialistDoctorDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
   const [stats, setStats] = useState({
     totalPatients: 0,
     appointmentsToday: 0,
@@ -58,6 +57,7 @@ const SpecialistDoctorDashboard = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
+  const [showAddPatientModal, setShowAddPatientModal] = useState(false);
 
   const loadDashboard = useCallback(async (doctorId) => {
     setFetchError('');
@@ -77,6 +77,16 @@ const SpecialistDoctorDashboard = () => {
       }
 
       const data = await response.json();
+      const patientResponse = await fetch(
+        `http://localhost:8000/api/patients?doctor_id=${doctorId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          }
+        }
+      );
+      const patientsData = patientResponse.ok ? await patientResponse.json() : [];
       const todayStr = new Date().toDateString();
 
       const mapped = [...data]
@@ -106,7 +116,10 @@ const SpecialistDoctorDashboard = () => {
       );
 
       setStats({
-        totalPatients: new Set(data.map((a) => a.patient_id)).size,
+        totalPatients: new Set([
+          ...data.map((a) => a.patient_id),
+          ...patientsData.map((patient) => patient.id)
+        ]).size,
         appointmentsToday: todayList.length,
         pendingReports: data.filter((a) => a.status === 'scheduled').length,
         completedConsultations: data.filter((a) => a.status === 'completed').length
@@ -131,7 +144,15 @@ const SpecialistDoctorDashboard = () => {
         }
       }
       setRecentPatients(
-        [...byPatient.values()]
+        [...byPatient.values(),
+        ...patientsData
+          .filter((patient) => !byPatient.has(patient.id))
+          .map((patient) => ({
+            id: patient.id,
+            name: patient.name,
+            lastVisit: patient.created_at || null,
+            lastTime: patient.created_at ? new Date(patient.created_at).getTime() : 0
+          }))]
           .sort((a, b) => b.lastTime - a.lastTime)
           .slice(0, 8)
       );
@@ -147,67 +168,6 @@ const SpecialistDoctorDashboard = () => {
         completedConsultations: 0
       });
     } finally {
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (!storedUser) {
-      navigate('/login');
-      return;
-    }
-
-    const currentUser = JSON.parse(storedUser);
-    setUser(currentUser);
-
-    const fetchDashboardData = async () => {
-      const today = new Date().toISOString().split('T')[0];
-
-      try {
-        const appointmentResponse = await fetch(`http://localhost:8000/api/appointments?doctor_id=${currentUser.id}`,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            }
-          }
-        );
-
-        if (appointmentResponse.ok) {
-          const appointments = await appointmentResponse.json();
-          const uniquePatientIds = new Set(appointments.map(apt => apt.patient?.id).filter(Boolean));
-          const todaysAppointments = appointments.filter(apt => {
-            if (!apt.appointment_date) return false;
-            return apt.appointment_date.split('T')[0] === today || apt.appointment_date === today;
-          });
-
-          setStats({
-            totalPatients: uniquePatientIds.size,
-            appointmentsToday: todaysAppointments.length
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching specialist doctor appointments:', error);
-      }
-
-      try {
-        const queueResponse = await fetch(`http://localhost:8000/api/queue/doctor?doctor_id=${currentUser.id}&date=${today}`, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
-        });
-
-        if (queueResponse.ok) {
-          const queueData = await queueResponse.json();
-          setQueueStats({
-            totalPatients: queueData.total_patients || 0,
-            priorityPatients: queueData.priority_patients || 0,
-            normalPatients: queueData.normal_patients || 0
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching doctor queue data:', error);
-      }
-
       setIsLoading(false);
     }
   }, []);
@@ -239,16 +199,95 @@ const SpecialistDoctorDashboard = () => {
     return () => window.removeEventListener('focus', onFocus);
   }, [loadDashboard, user?.id]);
 
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    if (!user?.id) return;
+
+    const fetchQueueStats = async () => {
+      try {
+        const queueResponse = await fetch(
+          `http://localhost:8000/api/queue/doctor?doctor_id=${user.id}&date=${today}`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            }
+          }
+        );
+
+        if (queueResponse.ok) {
+          const queueData = await queueResponse.json();
+          setQueueStats({
+            totalPatients: queueData.total_patients || 0,
+            priorityPatients: queueData.priority_patients || 0,
+            normalPatients: queueData.normal_patients || 0
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching doctor queue data:', error);
+      }
+    };
+
+    fetchQueueStats();
+  }, [user?.id]);
+
   const doctorLabel = getLoggedInDoctorLabel(user);
 
   const handleSignOut = () => {
     localStorage.removeItem('user');
     navigate('/login');
   };
-    };
 
-    fetchDashboardData();
-  }, [navigate]);
+  const handleAddPatient = () => {
+    setShowAddPatientModal(true);
+  };
+
+  const handlePatientAdded = (newPatient) => {
+    // Refresh dashboard data to include the new patient
+    if (user?.id) {
+      loadDashboard(user.id);
+    }
+  };
+
+  const handleEmergencyCancel = async () => {
+    if (!user?.id) return;
+    const confirmed = window.confirm(
+      'An emergency cancellation will cancel all your scheduled appointments. Continue?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/appointments/doctor/${user.id}/emergency-cancel`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          },
+          body: JSON.stringify({
+            reason: 'Doctor emergency: appointments cancelled until the emergency is resolved.'
+          })
+        }
+      );
+
+      const data = await response.json();
+      if (response.ok) {
+        alert(data.message || 'Scheduled appointments cancelled for emergency.');
+        loadDashboard(user.id);
+      } else {
+        alert(data.message || 'Failed to cancel appointments.');
+      }
+    } catch (error) {
+      console.error('Emergency cancel error:', error);
+      alert('Failed to perform emergency cancellation.');
+    }
+  };
+
+  const handleViewPatientRecords = () => {
+    navigate('/patient/medical-records');
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -269,13 +308,6 @@ const SpecialistDoctorDashboard = () => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  const handleLogout = () => {
-    // Clear any authentication tokens or user data
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
-
-    // Navigate to login page
-    navigate('/login');
   };
 
   const getStatusText = (status) => {
@@ -297,9 +329,6 @@ const SpecialistDoctorDashboard = () => {
       default:
         return status ? String(status) : 'Unknown';
     }
-  const handleViewPatientRecords = () => {
-    // Navigate to patient records page
-    navigate('/patient/medical-records');
   };
 
   const getTypeColor = (type) => {
@@ -317,11 +346,7 @@ const SpecialistDoctorDashboard = () => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  const handleSpecializationClick = (specialization) => {
-    // Navigate to specialization-specific patients
-    navigate(`/patients?specialization=${specialization.toLowerCase()}`);
   };
-
 
   if (isLoading) {
     return (
@@ -343,22 +368,24 @@ const SpecialistDoctorDashboard = () => {
               <h1 className="text-2xl font-bold text-gray-900">Specialist Dashboard</h1>
               <p className="text-sm text-gray-600 mt-0.5">
                 {doctorLabel
-                  ? `Welcome back, ${doctorLabel}`
-                  : 'Welcome back{user ? `, Dr. ${user.name}` : ''}. Manage specialist consultations and referrals'}
-              .</p>
+                  ? `Welcome back, ${doctorLabel}. Manage specialist consultations and referrals`
+                  : 'Manage specialist consultations and referrals'}
+              </p>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
-                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"
+                onClick={handleEmergencyCancel}
+                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
               >
-                New Consultation
+                Emergency Cancel
               </button>
               <button
                 type="button"
+                onClick={handleAddPatient}
                 className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
               >
-                Send Referral
+                Add Patient
               </button>
               <button
                 type="button"
@@ -368,15 +395,6 @@ const SpecialistDoctorDashboard = () => {
                 Sign out
               </button>
             </div>
-            <button
-              onClick={handleLogout}
-              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center transition-colors duration-200"
-            >
-              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-              </svg>
-              Logout
-            </button>
           </div>
         </div>
       </div>
@@ -417,9 +435,6 @@ const SpecialistDoctorDashboard = () => {
             </div>
           </div>
 
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0 bg-yellow-100 rounded-lg p-3">
@@ -428,13 +443,12 @@ const SpecialistDoctorDashboard = () => {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Scheduled (pending)</p>
+                <p className="text-sm font-medium text-gray-600">Pending</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.pendingReports}</p>
               </div>
             </div>
-            <p className="text-sm font-medium text-gray-600">Scheduled Today</p>
-            <p className="text-2xl font-bold text-gray-900">{queueStats.totalPatients}</p>
           </div>
+
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0 bg-purple-100 rounded-lg p-3">
@@ -443,12 +457,25 @@ const SpecialistDoctorDashboard = () => {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Consultations Completed</p>
+                <p className="text-sm font-medium text-gray-600">Completed</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.completedConsultations}</p>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <p className="text-sm font-medium text-gray-600">Scheduled Today</p>
+            <p className="text-2xl font-bold text-gray-900">{queueStats.totalPatients}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
             <p className="text-sm font-medium text-gray-600">Priority Patients</p>
             <p className="text-2xl font-bold text-green-900">{queueStats.priorityPatients}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <p className="text-sm font-medium text-gray-600">Normal Patients</p>
+            <p className="text-2xl font-bold text-gray-900">{queueStats.normalPatients}</p>
           </div>
         </div>
 
@@ -467,24 +494,12 @@ const SpecialistDoctorDashboard = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Patient Name
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient Name</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -497,47 +512,29 @@ const SpecialistDoctorDashboard = () => {
                 ) : (
                   recentAppointments.map((appointment) => (
                     <tr key={appointment.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-left">
-                        {appointment.dateLabel}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-center">
-                        {appointment.time}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left">
-                        {appointment.patientName}
-                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{appointment.dateLabel}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-center">{appointment.time}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{appointment.patientName}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getTypeColor(appointment.type)}`}
-                        >
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getTypeColor(appointment.type)}`}>
                           {appointment.type}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(appointment.status)}`}
-                        >
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(appointment.status)}`}>
                           {getStatusText(appointment.status)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
-                        <button type="button" className="text-indigo-600 hover:text-indigo-900 mr-3">
+                        <button type="button" className="text-indigo-600 hover:text-indigo-900">
                           View
                         </button>
-                        {appointment.status === 'scheduled' && (
-                          <button type="button" className="text-green-600 hover:text-green-900 mr-3">
-                            Start
-                          </button>
-                        )}
                       </td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm font-medium text-gray-600">Normal Patients</p>
-            <p className="text-2xl font-bold text-gray-900">{queueStats.normalPatients}</p>
           </div>
         </div>
 
@@ -548,23 +545,8 @@ const SpecialistDoctorDashboard = () => {
             </div>
             <div className="p-6 space-y-3">
               <button
-                type="button"
-                className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">Schedule Consultation</span>
-                </div>
-              </button>
-              <button
-                type="button"
-                className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-              <button
                 onClick={handleViewPatientRecords}
-                className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-center">
                   <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -596,21 +578,15 @@ const SpecialistDoctorDashboard = () => {
                     ];
                     const { bg, text } = avatarStyles[idx % avatarStyles.length];
                     return (
-                      <div
-                        key={p.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                      >
+                      <div key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div className="flex items-center min-w-0">
-                          <div
-                            className={`w-8 h-8 ${bg} rounded-full flex items-center justify-center shrink-0`}
-                          >
+                          <div className={`w-8 h-8 ${bg} rounded-full flex items-center justify-center shrink-0`}>
                             <span className={`text-sm font-medium ${text}`}>{initialsFromName(p.name)}</span>
                           </div>
                           <div className="ml-3 min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
                             <p className="text-xs text-gray-500">
-                              Last booking:{' '}
-                              {p.lastVisit ? new Date(p.lastVisit).toLocaleDateString() : '—'}
+                              Last booking: {p.lastVisit ? new Date(p.lastVisit).toLocaleDateString() : '—'}
                             </p>
                           </div>
                         </div>
@@ -622,47 +598,16 @@ const SpecialistDoctorDashboard = () => {
                   })}
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={() => handleSpecializationClick('Cardiology')}
-                  className="text-center p-4 bg-red-50 rounded-lg hover:bg-red-100 transition-colors duration-200 cursor-pointer"
-                >
-                  <p className="text-2xl font-bold text-red-600">Cardiology</p>
-                  <p className="text-sm text-gray-600">12 patients</p>
-                </button>
-                <button
-                  onClick={() => handleSpecializationClick('Neurology')}
-                  className="text-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors duration-200 cursor-pointer"
-                >
-                  <p className="text-2xl font-bold text-blue-600">Neurology</p>
-                  <p className="text-sm text-gray-600">8 patients</p>
-                </button>
-                <button
-                  onClick={() => handleSpecializationClick('Orthopedics')}
-                  className="text-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors duration-200 cursor-pointer"
-                >
-                  <p className="text-2xl font-bold text-green-600">Orthopedics</p>
-                  <p className="text-sm text-gray-600">15 patients</p>
-                </button>
-                <button
-                  onClick={() => handleSpecializationClick('Pediatrics')}
-                  className="text-center p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors duration-200 cursor-pointer"
-                >
-                  <p className="text-2xl font-bold text-yellow-600">Pediatrics</p>
-                  <p className="text-sm text-gray-600">10 patients</p>
-                </button>
-                <button
-                  onClick={() => handleSpecializationClick('Dermatology')}
-                  className="text-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors duration-200 cursor-pointer"
-                >
-                  <p className="text-2xl font-bold text-purple-600">Dermatology</p>
-                  <p className="text-sm text-gray-600">6 patients</p>
-                </button>
-              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <AddPatientModal
+        isOpen={showAddPatientModal}
+        onClose={() => setShowAddPatientModal(false)}
+        onPatientAdded={handlePatientAdded}
+      />
     </div>
   );
 };

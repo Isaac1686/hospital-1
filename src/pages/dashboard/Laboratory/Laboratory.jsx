@@ -24,7 +24,7 @@ const LaboratoryDashboard = () => {
         inProgress: 8,
         totalPatients: 23
       });
-      
+
       setRecentTests([
         { id: 1, patientName: 'John Doe', testType: 'Blood Test', status: 'pending', date: '2026-04-09' },
         { id: 2, patientName: 'Jane Smith', testType: 'Urine Test', status: 'completed', date: '2026-04-09' },
@@ -38,36 +38,35 @@ const LaboratoryDashboard = () => {
 
   useEffect(() => {
     if (showQueue) {
-      fetchQueueData();
+      const fetchData = async () => {
+        try {
+          const user = JSON.parse(localStorage.getItem('user'));
+          if (!user) return;
+
+          const response = await fetch(`http://localhost:8000/api/queue/doctor?doctor_id=${user.id}&date=${selectedDate}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setQueue(data.queue || []);
+          }
+        } catch (error) {
+          console.error('Error fetching queue:', error);
+        }
+      };
+      fetchData();
     }
   }, [selectedDate, showQueue]);
-
-  const fetchQueueData = async () => {
-    try {
-      const user = JSON.parse(localStorage.getItem('user'));
-      if (!user) return;
-
-      const response = await fetch(`http://localhost:8000/api/queue/doctor?doctor_id=${user.id}&date=${selectedDate}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setQueue(data.queue || []);
-      }
-    } catch (error) {
-      console.error('Error fetching queue:', error);
-    }
-  };
 
   const handleLogout = () => {
     // Clear any authentication tokens or user data
     localStorage.removeItem('authToken');
     localStorage.removeItem('userData');
-    
+
     // Navigate to login page
     navigate('/login');
   };
@@ -96,14 +95,6 @@ const LaboratoryDashboard = () => {
       default:
         return 'Unknown';
     }
-  };
-
-  const getPriorityColor = (priority) => {
-    return priority === 'high' ? 'text-red-600 bg-red-50 border-red-200' : 'text-blue-600 bg-blue-50 border-blue-200';
-  };
-
-  const getPriorityBadge = (priority) => {
-    return priority === 'high' ? 'Priority (50+)' : 'Normal';
   };
 
   const formatTime = (time) => {
@@ -136,13 +127,12 @@ const LaboratoryDashboard = () => {
               <p className="text-sm text-gray-600">Manage laboratory tests and results</p>
             </div>
             <div className="flex space-x-3">
-              <button 
+              <button
                 onClick={() => setShowQueue(!showQueue)}
-                className={`px-4 py-2 rounded-md transition-colors ${
-                  showQueue 
-                    ? 'bg-orange-600 hover:bg-orange-700 text-white' 
-                    : 'bg-purple-600 hover:bg-purple-700 text-white'
-                }`}
+                className={`px-4 py-2 rounded-md transition-colors ${showQueue
+                  ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  }`}
               >
                 {showQueue ? 'Hide Queue' : 'Show Queue'}
               </button>
@@ -152,7 +142,7 @@ const LaboratoryDashboard = () => {
               <button className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
                 Generate Report
               </button>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center transition-colors duration-200"
               >
@@ -254,7 +244,7 @@ const LaboratoryDashboard = () => {
                 </div>
               </div>
             </div>
-            
+
             {queue.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-gray-400 text-5xl mb-4">📋</div>
@@ -487,7 +477,7 @@ const LaboratoryDashboard = () => {
             </div>
           </div>
 
-                  </div>
+        </div>
       </div>
     </div>
   );
