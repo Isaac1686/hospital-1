@@ -27,7 +27,8 @@ class User extends Authenticatable
         'age',
         'gender',
         'role',
-        'specialty'
+        'specialty',
+        'doctor_id',
     ];
 
     /**
@@ -46,6 +47,11 @@ class User extends Authenticatable
     public function appointments(): HasMany
     {
         return $this->hasMany(Appointment::class, 'patient_id');
+    }
+
+    public function createdPatients(): HasMany
+    {
+        return $this->hasMany(User::class, 'doctor_id');
     }
 
     /**

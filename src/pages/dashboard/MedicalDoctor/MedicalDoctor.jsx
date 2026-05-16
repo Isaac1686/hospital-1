@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AddPatientModal from '../../components/AddPatientModal';
 
 /** Label for the logged-in doctor (from session user object). */
 function getLoggedInDoctorLabel(user) {
@@ -43,14 +44,18 @@ const MedicalDoctorDashboard = () => {
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({
     totalPatients: 0,
-    appointmentsToday: 0,
-    pendingReports: 0,
-    completedConsultations: 0
+    appointmentsToday: 0
+  });
+  const [queueStats, setQueueStats] = useState({
+    totalPatients: 0,
+    priorityPatients: 0,
+    normalPatients: 0
   });
   const [recentAppointments, setRecentAppointments] = useState([]);
   const [recentPatients, setRecentPatients] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
+  const [showAddPatientModal, setShowAddPatientModal] = useState(false);
 
   const loadDashboard = useCallback(async (doctorId) => {
     setFetchError('');
@@ -70,6 +75,16 @@ const MedicalDoctorDashboard = () => {
       }
 
       const data = await response.json();
+      const patientResponse = await fetch(
+        `http://localhost:8000/api/patients?doctor_id=${doctorId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          }
+        }
+      );
+      const patientsData = patientResponse.ok ? await patientResponse.json() : [];
       const todayStr = new Date().toDateString();
 
       const mapped = [...data]
@@ -99,7 +114,10 @@ const MedicalDoctorDashboard = () => {
       );
 
       setStats({
-        totalPatients: new Set(data.map((a) => a.patient_id)).size,
+        totalPatients: new Set([
+          ...data.map((a) => a.patient_id),
+          ...patientsData.map((patient) => patient.id)
+        ]).size,
         appointmentsToday: todayList.length,
         pendingReports: data.filter((a) => a.status === 'scheduled').length,
         completedConsultations: data.filter((a) => a.status === 'completed').length
@@ -123,8 +141,19 @@ const MedicalDoctorDashboard = () => {
           });
         }
       }
+      const appointmentPatients = [...byPatient.values()];
+      const appointmentPatientIds = new Set(appointmentPatients.map((item) => item.id));
+      const createdPatients = patientsData
+        .filter((patient) => !appointmentPatientIds.has(patient.id))
+        .map((patient) => ({
+          id: patient.id,
+          name: patient.name,
+          lastVisit: patient.created_at || null,
+          lastTime: patient.created_at ? new Date(patient.created_at).getTime() : 0
+        }));
+
       setRecentPatients(
-        [...byPatient.values()]
+        [...appointmentPatients, ...createdPatients]
           .sort((a, b) => b.lastTime - a.lastTime)
           .slice(0, 8)
       );
@@ -176,6 +205,62 @@ const MedicalDoctorDashboard = () => {
   const handleSignOut = () => {
     localStorage.removeItem('user');
     navigate('/login');
+  };
+
+  const handleAddPatient = () => {
+    setShowAddPatientModal(true);
+  };
+
+  const handlePatientAdded = (newPatient) => {
+    // Refresh dashboard data to include the new patient
+    if (user?.id) {
+      loadDashboard(user.id);
+    }
+  };
+
+  const handleEmergencyCancel = async () => {
+    if (!user?.id) return;
+    const confirmed = window.confirm(
+      'An emergency cancellation will cancel all your scheduled appointments. Continue?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/appointments/doctor/${user.id}/emergency-cancel`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          },
+          body: JSON.stringify({
+            reason: 'Doctor emergency: appointments cancelled until the emergency is resolved.'
+          })
+        }
+      );
+
+      const data = await response.json();
+      if (response.ok) {
+        alert(data.message || 'Scheduled appointments cancelled for emergency.');
+        loadDashboard(user.id);
+      } else {
+        alert(data.message || 'Failed to cancel appointments.');
+      }
+    } catch (error) {
+      console.error('Emergency cancel error:', error);
+      alert('Failed to perform emergency cancellation.');
+    }
+  };
+
+  const handleViewPatientRecords = () => {
+    navigate('/patient/medical-records');
+  };
+
+  const handleGeneratePrescription = () => {
+    // TODO: Implement prescription generation
+    alert('Prescription generation feature coming soon!');
   };
 
   const getStatusColor = (status) => {
@@ -259,18 +344,20 @@ const MedicalDoctorDashboard = () => {
               <p className="text-sm text-gray-600 mt-0.5">
                 {doctorLabel
                   ? `Welcome back, ${doctorLabel}`
-                  : 'Manage patients and appointments'}
+                  : `Welcome back${user ? `, Dr. ${user.name}` : ''}. Manage patients and appointments.`}
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
               <button
                 type="button"
-                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"
+                onClick={handleEmergencyCancel}
+                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
               >
-                New Appointment
+                Emergency Cancel
               </button>
               <button
                 type="button"
+                onClick={handleAddPatient}
                 className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
               >
                 Add Patient
@@ -296,7 +383,7 @@ const MedicalDoctorDashboard = () => {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0 bg-blue-100 rounded-lg p-3">
@@ -324,7 +411,9 @@ const MedicalDoctorDashboard = () => {
               </div>
             </div>
           </div>
+        </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0 bg-yellow-100 rounded-lg p-3">
@@ -338,19 +427,9 @@ const MedicalDoctorDashboard = () => {
               </div>
             </div>
           </div>
-
           <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-purple-100 rounded-lg p-3">
-                <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Completed Consultations</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.completedConsultations}</p>
-              </div>
-            </div>
+            <p className="text-sm font-medium text-gray-600">Normal Patients</p>
+            <p className="text-2xl font-bold text-gray-900">{queueStats.normalPatients}</p>
           </div>
         </div>
 
@@ -448,23 +527,10 @@ const MedicalDoctorDashboard = () => {
               <h3 className="text-lg font-medium text-gray-900">Quick Actions</h3>
             </div>
             <div className="p-6 space-y-3">
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">Schedule Appointment</span>
-                </div>
-              </button>
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0 0h3m-3 0h-3m2-8H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2m-9 0a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2m-9 0a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2z"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">Add New Patient</span>
-                </div>
-              </button>
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+              <button
+                onClick={handleGeneratePrescription}
+                className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              >
                 <div className="flex items-center">
                   <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -472,7 +538,10 @@ const MedicalDoctorDashboard = () => {
                   <span className="text-sm font-medium text-gray-900">Generate Prescription</span>
                 </div>
               </button>
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+              <button
+                onClick={handleViewPatientRecords}
+                className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              >
                 <div className="flex items-center">
                   <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
@@ -535,6 +604,12 @@ const MedicalDoctorDashboard = () => {
           </div>
         </div>
       </div>
+
+      <AddPatientModal
+        isOpen={showAddPatientModal}
+        onClose={() => setShowAddPatientModal(false)}
+        onPatientAdded={handlePatientAdded}
+      />
     </div>
   );
 };

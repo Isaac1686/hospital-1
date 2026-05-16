@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+// import Notification from '../../../../components/Notification.jsx';
 
 const PatientDashboard = () => {
   const [user, setUser] = useState(null);
@@ -12,6 +13,7 @@ const PatientDashboard = () => {
   const [postponeFormData, setPostponeFormData] = useState({
     date: ''
   });
+  const [notification, setNotification] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -86,21 +88,36 @@ const PatientDashboard = () => {
               id: apt.id,
               doctor: `Dr. ${apt.doctor?.name || 'Unknown Doctor'}`,
               specialty: apt.doctor?.role === 'medical_doctor' ? 'General Practitioner' : 'Specialist',
-              date: apt.created_at ? new Date(apt.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
-              time: apt.created_at ? formatTime(new Date(apt.created_at).toTimeString().substring(0, 5)) : '',
+              date: apt.appointment_date ? new Date(apt.appointment_date).toLocaleDateString() : new Date().toLocaleDateString(),
+              time: apt.appointment_time ? formatTime(apt.appointment_time) : '',
               status: apt.status,
               queuePosition: queuePosition,
-              doctor_id: apt.doctor_id
+              doctor_id: apt.doctor_id,
+              cancellation_reason: apt.cancellation_reason || null
             };
           }));
 
           setAppointments(transformedAppointments);
+
+          const emergencyAppointment = transformedAppointments.find(
+            (apt) => apt.status === 'cancelled' && apt.cancellation_reason
+          );
+          if (emergencyAppointment) {
+            setNotification({
+              type: 'warning',
+              message: emergencyAppointment.cancellation_reason
+            });
+          } else {
+            setNotification(null);
+          }
         } else {
           console.error('Failed to fetch appointments');
           setAppointments([]);
+          setNotification(null);
         }
       } else {
         setAppointments([]);
+        setNotification(null);
       }
 
       // Fetch medical records (mock for now)
@@ -256,6 +273,9 @@ const PatientDashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {notification && (
+          <Notification notification={notification} onClose={() => setNotification(null)} />
+        )}
         {/* Quick Actions */}
         <div className="mb-10">
           <div className="flex items-center mb-6">
@@ -353,7 +373,6 @@ const PatientDashboard = () => {
                           </div>
                         </div>
                         <div className="mt-4 space-y-2">
-                          
                           {appointment.queuePosition && (
                             <div className="mt-3 inline-flex items-center px-4 py-2 rounded-full text-sm font-bold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg">
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

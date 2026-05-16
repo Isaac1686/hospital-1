@@ -217,7 +217,7 @@ class QueueController extends Controller
     }
 
     /**
-     * Prioritize appointments based on patient age
+     * Prioritize appointments based on patient age with specific queue numbering
      *
      * @param  \Illuminate\Support\Collection  $appointments
      * @return \Illuminate\Support\Collection
