@@ -543,43 +543,103 @@ const BookAppointment = () => {
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Available Doctors</h2>
 
             <div className="space-y-4">
-              {/* Specialist Doctors Section */}
-              <div className="mb-6">
-                <h3 className="text-md font-medium text-gray-800 mb-3 flex items-center">
-                  <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-                  Specialist Doctors
-                </h3>
-                <div className="space-y-2">
-                  {doctors.filter(d => d.type === 'specialist').map(doctor => (
-                    <div key={doctor.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">{doctor.name}</p>
-                        <p className="text-sm text-gray-600">{doctor.specialty}</p>
-                      </div>
-                      <div className={`w-3 h-3 rounded-full ${doctor.available ? 'bg-green-400' : 'bg-red-400'}`}></div>
+              {!formData.doctorType && (
+                <>
+                  {/* Specialist Doctors Section */}
+                  <div className="mb-6">
+                    <h3 className="text-md font-medium text-gray-800 mb-3 flex items-center">
+                      <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                      Specialist Doctors
+                    </h3>
+                    <div className="space-y-2">
+                      {doctors.filter(d => d.type === 'specialist').length > 0 ? (
+                        doctors.filter(d => d.type === 'specialist').map(doctor => (
+                          <div key={doctor.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                            <div>
+                              <p className="font-medium text-gray-900">{doctor.name}</p>
+                              <p className="text-sm text-gray-600">{doctor.specialty}</p>
+                            </div>
+                            <div className={`w-3 h-3 rounded-full ${doctor.available ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">No specialist doctors available</p>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              {/* Medical Doctors Section */}
-              <div>
-                <h3 className="text-md font-medium text-gray-800 mb-3 flex items-center">
-                  <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                  Medical Doctors
-                </h3>
-                <div className="space-y-2">
-                  {doctors.filter(d => d.type === 'medical').map(doctor => (
-                    <div key={doctor.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">{doctor.name}</p>
-                        <p className="text-sm text-gray-600">{doctor.specialty}</p>
-                      </div>
-                      <div className={`w-3 h-3 rounded-full ${doctor.available ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                  {/* Medical Doctors Section */}
+                  <div>
+                    <h3 className="text-md font-medium text-gray-800 mb-3 flex items-center">
+                      <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                      Medical Doctors
+                    </h3>
+                    <div className="space-y-2">
+                      {doctors.filter(d => d.type === 'medical').length > 0 ? (
+                        doctors.filter(d => d.type === 'medical').map(doctor => (
+                          <div key={doctor.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                            <div>
+                              <p className="font-medium text-gray-900">{doctor.name}</p>
+                              <p className="text-sm text-gray-600">{doctor.specialty}</p>
+                            </div>
+                            <div className={`w-3 h-3 rounded-full ${doctor.available ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">No medical doctors available</p>
+                      )}
                     </div>
-                  ))}
+                  </div>
+                </>
+              )}
+
+              {formData.doctorType === 'specialist' && (
+                <div>
+                  <h3 className="text-md font-medium text-gray-800 mb-3 flex items-center">
+                    <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                    Specialist Doctors
+                  </h3>
+                  <div className="space-y-2">
+                    {filteredDoctors.length > 0 ? (
+                      filteredDoctors.map(doctor => (
+                        <div key={doctor.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg hover:shadow-md transition-shadow cursor-pointer">
+                          <div>
+                            <p className="font-medium text-gray-900">{doctor.name}</p>
+                            <p className="text-sm text-gray-600">{doctor.specialty}</p>
+                          </div>
+                          <div className={`w-3 h-3 rounded-full ${doctor.available ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500">No specialist doctors available</p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {formData.doctorType === 'medical' && (
+                <div>
+                  <h3 className="text-md font-medium text-gray-800 mb-3 flex items-center">
+                    <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                    Medical Doctors
+                  </h3>
+                  <div className="space-y-2">
+                    {filteredDoctors.length > 0 ? (
+                      filteredDoctors.map(doctor => (
+                        <div key={doctor.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg hover:shadow-md transition-shadow cursor-pointer">
+                          <div>
+                            <p className="font-medium text-gray-900">{doctor.name}</p>
+                            <p className="text-sm text-gray-600">{doctor.specialty}</p>
+                          </div>
+                          <div className={`w-3 h-3 rounded-full ${doctor.available ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500">No medical doctors available</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Legend */}
@@ -595,6 +655,11 @@ const BookAppointment = () => {
                   <span>Unavailable</span>
                 </div>
               </div>
+              {formData.doctorType && (
+                <p className="text-xs text-gray-600 mt-3">
+                  💡 Showing {formData.doctorType === 'specialist' ? 'Specialist' : 'Medical'} doctors. Clear the selection to see all doctors.
+                </p>
+              )}
             </div>
           </div>
         </div>

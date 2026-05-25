@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const PharmacyDashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalMedications: 0,
     lowStock: 0,
@@ -31,6 +32,46 @@ const PharmacyDashboard = () => {
       setIsLoading(false);
     }, 1000);
   }, []);
+
+  const handleNewPrescription = () => {
+    // Navigate to new prescription form
+    navigate('/prescriptions/new');
+  };
+
+  const handleOrderMedications = () => {
+    // Navigate to medication ordering page
+    navigate('/medications/order');
+  };
+
+  const handleGenerateReport = () => {
+    // Navigate to report generation page
+    navigate('/reports/generate');
+  };
+
+  const handleViewPrescription = (prescriptionId) => {
+    // Navigate to specific prescription details
+    navigate(`/prescriptions/${prescriptionId}`);
+  };
+
+  const handleFillPrescription = (prescriptionId) => {
+    // Update prescription status to filled
+    setRecentPrescriptions(prev => 
+      prev.map(pres => 
+        pres.id === prescriptionId 
+          ? { ...pres, status: 'filled' }
+          : pres
+      )
+    );
+  };
+
+  const handleLogout = () => {
+    // Clear any authentication tokens or user data
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+    
+    // Navigate to login page
+    navigate('/login');
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -90,14 +131,32 @@ const PharmacyDashboard = () => {
               <p className="text-sm text-gray-600">Manage medications and prescriptions</p>
             </div>
             <div className="flex space-x-3">
-              <button className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors">
+              <button 
+                onClick={handleNewPrescription}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
+              >
                 New Prescription
               </button>
-              <button className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+              <button 
+                onClick={handleOrderMedications}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+              >
                 Order Medications
               </button>
-              <button className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors">
+              <button 
+                onClick={handleGenerateReport}
+                className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors"
+              >
                 Generate Report
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center transition-colors duration-200"
+              >
+                <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                </svg>
+                Logout
               </button>
             </div>
           </div>
@@ -213,10 +272,16 @@ const PharmacyDashboard = () => {
                       {prescription.date}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button className="text-indigo-600 hover:text-indigo-900 mr-3">
+                      <button 
+                        onClick={() => handleViewPrescription(prescription.id)}
+                        className="text-indigo-600 hover:text-indigo-900 mr-3"
+                      >
                         View
                       </button>
-                      <button className="text-green-600 hover:text-green-900">
+                      <button 
+                        onClick={() => handleFillPrescription(prescription.id)}
+                        className="text-green-600 hover:text-green-900"
+                      >
                         Fill
                       </button>
                     </td>
