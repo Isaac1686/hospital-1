@@ -86,20 +86,20 @@ const SpecialistDoctorDashboard = () => {
       const data = await response.json();
 
       const mapped = data.map((apt) => ({
-          id: apt.id,
-          patientName:
-            apt.patient?.name ||
-            (typeof apt.patient?.email === 'string'
-              ? apt.patient.email.split('@')[0]
-              : null) ||
-            'Unknown patient',
-          patientId: apt.patient_id,
-          time: formatTimeFromIso(apt.created_at),
-          bookedAt: apt.created_at,
-          dateLabel: formatAppointmentDate(apt.appointment_date, apt.created_at),
-          type: 'Patient booking',
-          status: apt.status
-        }));
+        id: apt.id,
+        patientName:
+          apt.patient?.name ||
+          (typeof apt.patient?.email === 'string'
+            ? apt.patient.email.split('@')[0]
+            : null) ||
+          'Unknown patient',
+        patientId: apt.patient_id,
+        time: formatTimeFromIso(apt.created_at),
+        bookedAt: apt.created_at,
+        dateLabel: formatAppointmentDate(apt.appointment_date, apt.created_at),
+        type: 'Patient booking',
+        status: apt.status
+      }));
 
       setRecentAppointments(mapped);
 

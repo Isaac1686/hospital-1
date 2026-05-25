@@ -82,13 +82,26 @@ const PatientDashboard = () => {
               }
             }
 
+            // Check if appointment date has passed
+            const appointmentDate = apt.appointment_date ? new Date(apt.appointment_date) : new Date();
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const appointmentDateOnly = new Date(appointmentDate);
+            appointmentDateOnly.setHours(0, 0, 0, 0);
+
+            let status = apt.status;
+            // If appointment date has passed and status is still scheduled, mark as expired
+            if (appointmentDateOnly < today && apt.status === 'scheduled') {
+              status = 'expired';
+            }
+
             return {
               id: apt.id,
               doctor: `Dr. ${apt.doctor?.name || 'Unknown Doctor'}`,
               specialty: apt.doctor?.role === 'medical_doctor' ? 'General Practitioner' : 'Specialist',
-              date: apt.created_at ? new Date(apt.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
-              time: apt.created_at ? formatTime(new Date(apt.created_at).toTimeString().substring(0, 5)) : '',
-              status: apt.status,
+              date: apt.appointment_date ? new Date(apt.appointment_date).toLocaleDateString() : new Date().toLocaleDateString(),
+              time: apt.appointment_date ? formatTime(new Date(apt.appointment_date).toTimeString().substring(0, 5)) : '',
+              status: status,
               queuePosition: queuePosition,
               doctor_id: apt.doctor_id
             };
@@ -332,7 +345,8 @@ const PatientDashboard = () => {
                           <span className={`ml-3 px-3 py-1 text-xs font-semibold rounded-full ${appointment.status === 'scheduled' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
                             appointment.status === 'completed' ? 'bg-green-100 text-green-800 border border-green-200' :
                               appointment.status === 'cancelled' ? 'bg-red-100 text-red-800 border border-red-200' :
-                                'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                                appointment.status === 'expired' ? 'bg-gray-100 text-gray-800 border border-gray-200' :
+                                  'bg-yellow-100 text-yellow-800 border border-yellow-200'
                             }`}>
                             {appointment.status}
                           </span>
@@ -353,7 +367,7 @@ const PatientDashboard = () => {
                           </div>
                         </div>
                         <div className="mt-4 space-y-2">
-                          
+
                           {appointment.queuePosition && (
                             <div className="mt-3 inline-flex items-center px-4 py-2 rounded-full text-sm font-bold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg">
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -366,7 +380,8 @@ const PatientDashboard = () => {
                           <div className="mt-4 flex flex-wrap gap-2">
                             <button
                               onClick={() => handleEditAppointment(appointment)}
-                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                              disabled={appointment.status === 'expired'}
+                              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white ${appointment.status === 'expired' ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'}`}
                             >
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V9a2 2 0 00-2-2z"></path>
@@ -375,7 +390,8 @@ const PatientDashboard = () => {
                             </button>
                             <button
                               onClick={() => handlePostponeAppointment(appointment)}
-                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                              disabled={appointment.status === 'expired'}
+                              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white ${appointment.status === 'expired' ? 'bg-gray-400 cursor-not-allowed' : 'bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500'}`}
                             >
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -384,7 +400,8 @@ const PatientDashboard = () => {
                             </button>
                             <button
                               onClick={() => handleCancelAppointment(appointment)}
-                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                              disabled={appointment.status === 'expired'}
+                              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white ${appointment.status === 'expired' ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500'}`}
                             >
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>

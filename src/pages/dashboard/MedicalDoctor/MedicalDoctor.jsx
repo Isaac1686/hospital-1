@@ -31,16 +31,22 @@ function formatTimeFromIso(iso) {
 }
 
 function formatAppointmentDate(appointmentDate, createdAt) {
-  const day = appointmentDate || (createdAt ? createdAt.slice(0, 10) : null);
+  let day = appointmentDate;
+  if (!day && createdAt) {
+    day = typeof createdAt === 'string' ? createdAt.slice(0, 10) : createdAt;
+  }
   if (!day) return '';
-  const d = new Date(`${day}T12:00:00`);
+  const d = new Date(day);
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
 }
 
 function isAppointmentToday(appointmentDate, createdAt) {
-  const day = appointmentDate || (createdAt ? createdAt.slice(0, 10) : null);
+  let day = appointmentDate;
+  if (!day && createdAt) {
+    day = typeof createdAt === 'string' ? createdAt.slice(0, 10) : createdAt;
+  }
   if (!day) return false;
-  const d = new Date(`${day}T12:00:00`);
+  const d = new Date(day);
   return !Number.isNaN(d.getTime()) && d.toDateString() === new Date().toDateString();
 }
 
@@ -86,20 +92,20 @@ const MedicalDoctorDashboard = () => {
       const data = await response.json();
 
       const mapped = data.map((apt) => ({
-          id: apt.id,
-          patientName:
-            apt.patient?.name ||
-            (typeof apt.patient?.email === 'string'
-              ? apt.patient.email.split('@')[0]
-              : null) ||
-            'Unknown patient',
-          patientId: apt.patient_id,
-          time: formatTimeFromIso(apt.created_at),
-          bookedAt: apt.created_at,
-          dateLabel: formatAppointmentDate(apt.appointment_date, apt.created_at),
-          type: 'Patient booking',
-          status: apt.status
-        }));
+        id: apt.id,
+        patientName:
+          apt.patient?.name ||
+          (typeof apt.patient?.email === 'string'
+            ? apt.patient.email.split('@')[0]
+            : null) ||
+          'Unknown patient',
+        patientId: apt.patient_id,
+        time: formatTimeFromIso(apt.created_at),
+        bookedAt: apt.created_at,
+        dateLabel: formatAppointmentDate(apt.appointment_date, apt.created_at),
+        type: 'Patient booking',
+        status: apt.status
+      }));
 
       setRecentAppointments(mapped);
 
