@@ -27,14 +27,14 @@ class QueueController extends Controller
             $doctorId = $validated['doctor_id'];
             $date = $validated['date'] ?? now()->toDateString();
 
-            // Get appointments for the doctor on specified date (using created_at timestamp)
+            // Get appointments for the doctor on the specified appointment date
             $appointments = Appointment::with(['patient', 'doctor'])
                 ->where('doctor_id', $doctorId)
-                ->whereDate('created_at', $date)
+                ->whereDate('appointment_date', $date)
                 ->where('status', 'scheduled')
                 ->get();
 
-            // Prioritize appointments based on patient age
+            // Prioritize appointments based on patient age and queue number
             $prioritizedQueue = $this->prioritizeAppointments($appointments);
 
             return response()->json([
@@ -78,7 +78,7 @@ class QueueController extends Controller
             foreach ($doctors as $doctor) {
                 $appointments = Appointment::with(['patient', 'doctor'])
                     ->where('doctor_id', $doctor->id)
-                    ->whereDate('created_at', $date)
+                    ->whereDate('appointment_date', $date)
                     ->where('status', 'scheduled')
                     ->get();
 
@@ -103,6 +103,97 @@ class QueueController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to fetch all queues: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get laboratory queue for a specific date
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getLaboratoryQueue(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'date' => 'nullable|date'
+            ]);
+
+            $date = $validated['date'] ?? now()->toDateString();
+
+            $appointments = Appointment::with(['patient', 'doctor'])
+                ->where('assigned_department', 'laboratory')
+                ->whereDate('appointment_date', $date)
+                ->where('status', 'scheduled')
+                ->get();
+
+            $queue = $this->prioritizeAppointments($appointments);
+
+            return response()->json([
+                'date' => $date,
+                'queue' => $queue,
+                'total_patients' => $queue->count(),
+                'priority_patients' => $queue->where('priority_level', 'high')->count(),
+                'normal_patients' => $queue->where('priority_level', 'normal')->count()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to fetch laboratory queue: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get laboratory dashboard/report data for a specific date.
+     * Returns names, appointment ids and counts (includes completed records)
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getLaboratoryReport(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'date' => 'nullable|date'
+            ]);
+
+            $date = $validated['date'] ?? now()->toDateString();
+
+            // Include scheduled and completed appointments assigned to laboratory
+            $appointments = Appointment::with(['patient', 'doctor'])
+                ->where('assigned_department', 'laboratory')
+                ->whereDate('appointment_date', $date)
+                ->whereIn('status', ['scheduled', 'completed'])
+                ->orderBy('appointment_time')
+                ->get();
+
+            $patients = $appointments->map(function ($appointment) {
+                return [
+                    'appointment_id' => $appointment->id,
+                    'patient_id' => $appointment->patient->id ?? null,
+                    'patient_name' => $appointment->patient->name ?? null,
+                    'queue_number' => $appointment->queue_number,
+                    'status' => $appointment->status,
+                    'lab_results' => $appointment->lab_results,
+                    'appointment_time' => $appointment->appointment_time,
+                    'doctor' => $appointment->doctor ? ['id' => $appointment->doctor->id, 'name' => $appointment->doctor->name] : null
+                ];
+            });
+
+            return response()->json([
+                'date' => $date,
+                'total_patients_assigned' => $patients->count(),
+                'by_status' => [
+                    'scheduled' => $patients->where('status', 'scheduled')->count(),
+                    'completed' => $patients->where('status', 'completed')->count(),
+                ],
+                'patients' => $patients,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to fetch laboratory report: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -148,6 +239,8 @@ class QueueController extends Controller
                 'appointment_date' => $validated['date'],
                 'reason' => $validated['reason'] ?? 'General consultation',
                 'symptoms' => $validated['symptoms'] ?? null,
+                'queue_number' => $this->calculateQueueNumber($validated['doctor_id'], $validated['date'], $patient->age),
+                'assigned_department' => 'medical',
                 'status' => 'scheduled'
             ]);
 
@@ -182,7 +275,8 @@ class QueueController extends Controller
         try {
             $validated = $request->validate([
                 'patient_id' => 'required|exists:users,id',
-                'doctor_id' => 'required|exists:users,id'
+                'doctor_id' => 'required|exists:users,id',
+                'date' => 'nullable|date'
             ]);
 
             $patientId = $validated['patient_id'];
@@ -236,10 +330,14 @@ class QueueController extends Controller
         });
         
         // Sort each group by creation time
-        $highPrioritySorted = $highPriorityAppointments->sortBy('created_at')->values();
-        $normalPrioritySorted = $normalPriorityAppointments->sortBy('created_at')->values();
+        $highPrioritySorted = $highPriorityAppointments->sortBy(function ($appointment) {
+            return $appointment->queue_number ?? $appointment->created_at->timestamp;
+        })->values();
+        $normalPrioritySorted = $normalPriorityAppointments->sortBy(function ($appointment) {
+            return $appointment->queue_number ?? $appointment->created_at->timestamp;
+        })->values();
         
-        // Assign queue numbers to each group separately
+        // Assign queue numbers to each group separately, preserving any persisted queue numbers
         $highPriorityWithNumbers = $highPrioritySorted->map(function ($appointment, $index) {
             $patientAge = $appointment->patient->age ?? 0;
             return [
@@ -251,7 +349,10 @@ class QueueController extends Controller
                     'phone_number' => $appointment->patient->phone_number
                 ],
                 'priority_level' => 'high',
-                'queue_number' => $index + 1, // Numbers 1-10 for high priority
+                'queue_number' => $appointment->queue_number ?? ($index + 1),
+                'queue_date' => $appointment->appointment_date,
+                'appointment_time' => $appointment->appointment_time,
+                'doctor' => $appointment->doctor,
                 'priority_score' => $this->calculatePriorityScore($patientAge)
             ];
         });
@@ -267,7 +368,10 @@ class QueueController extends Controller
                     'phone_number' => $appointment->patient->phone_number
                 ],
                 'priority_level' => 'normal',
-                'queue_number' => $index + 11, // Numbers 11+ for normal priority
+                'queue_number' => $appointment->queue_number ?? ($index + 11),
+                'queue_date' => $appointment->appointment_date,
+                'appointment_time' => $appointment->appointment_time,
+                'doctor' => $appointment->doctor,
                 'priority_score' => $this->calculatePriorityScore($patientAge)
             ];
         });
@@ -286,6 +390,37 @@ class QueueController extends Controller
     private function determinePriorityLevel(int $age): string
     {
         return $age >= 50 ? 'high' : 'normal';
+    }
+
+    /**
+     * Calculate a queue number for a new appointment.
+     *
+     * @param  int  $doctorId
+     * @param  string  $appointmentDate
+     * @param  int  $patientAge
+     * @return int
+     */
+    private function calculateQueueNumber(int $doctorId, string $appointmentDate, int $patientAge): int
+    {
+        $existingNumbers = Appointment::where('doctor_id', $doctorId)
+            ->whereDate('appointment_date', $appointmentDate)
+            ->whereNotNull('queue_number')
+            ->pluck('queue_number')
+            ->toArray();
+
+        $isHighPriority = $patientAge >= 50;
+        $start = $isHighPriority ? 1 : 11;
+        $available = $start;
+
+        $filtered = array_filter($existingNumbers, function ($number) use ($isHighPriority) {
+            return $isHighPriority ? $number < 11 : $number >= 11;
+        });
+
+        if (!empty($filtered)) {
+            $available = max($filtered) + 1;
+        }
+
+        return $available;
     }
 
     /**
@@ -312,7 +447,7 @@ class QueueController extends Controller
     {
         $appointments = Appointment::with(['patient', 'doctor'])
             ->where('doctor_id', $doctorId)
-            ->whereDate('created_at', $date)
+            ->whereDate('appointment_date', $date)
             ->where('status', 'scheduled')
             ->get();
 
