@@ -104,14 +104,58 @@ class DoctorSeeder extends Seeder
             ],
         ];
 
-        // Insert specialist doctors
+        // Laboratory staff with login-ready details
+        $laboratorists = [
+            [
+                'name' => 'Lab Technician Anna',
+                'email' => 'laboratorist@hospital.com',
+                'password' => Hash::make('laboratory123'),
+                'phone_number' => '+1234567898',
+                'age' => 30,
+                'gender' => 'female',
+                'role' => 'laboratorist'
+            ],
+        ];
+
+        // Pharmacy staff with login-ready details
+        $pharmacists = [
+            [
+                'name' => 'Pharmacist John Doe',
+                'email' => 'pharmacist@hospital.com',
+                'password' => Hash::make('pharmacy123'),
+                'phone_number' => '+1234567899',
+                'age' => 34,
+                'gender' => 'male',
+                'role' => 'pharmacist'
+            ],
+        ];
+
+        // Insert specialist doctors (create or update by email)
         foreach ($specialistDoctors as $doctor) {
-            User::create($doctor);
+            User::updateOrCreate([
+                'email' => $doctor['email'],
+            ], $doctor);
         }
 
-        // Insert medical doctors
+        // Insert medical doctors (create or update by email)
         foreach ($medicalDoctors as $doctor) {
-            User::create($doctor);
+            User::updateOrCreate([
+                'email' => $doctor['email'],
+            ], $doctor);
+        }
+
+        // Insert laboratorists (create or update by email)
+        foreach ($laboratorists as $laboratorist) {
+            User::updateOrCreate([
+                'email' => $laboratorist['email'],
+            ], $laboratorist);
+        }
+
+        // Insert pharmacists (create or update by email)
+        foreach ($pharmacists as $pharmacist) {
+            User::updateOrCreate([
+                'email' => $pharmacist['email'],
+            ], $pharmacist);
         }
     }
 }

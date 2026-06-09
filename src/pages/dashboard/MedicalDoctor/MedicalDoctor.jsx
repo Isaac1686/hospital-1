@@ -56,6 +56,7 @@ const MedicalDoctorDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
   const [showAddPatientModal, setShowAddPatientModal] = useState(false);
+  const [availableSpecialists, setAvailableSpecialists] = useState([]);
 
   const loadDashboard = useCallback(async (doctorId) => {
     setFetchError('');
@@ -105,7 +106,24 @@ const MedicalDoctorDashboard = () => {
             : '',
           type: 'Patient booking',
           status: apt.status
-        }));
+          ,
+          assignedDepartment: apt.assigned_department || 'medical',
+          labResults: apt.lab_results || '',
+          pharmacyNotes: apt.pharmacy_notes || '',
+          specialistNotes: apt.specialist_notes || '',
+          referredSpecialistId: apt.referred_specialist_id || null
+        }))
+        .map((item) => {
+          // For the medical doctor's view, consider the appointment "complete"
+          // when the patient has been routed away from the medical department
+          // (e.g., to pharmacy or specialist). Do not change the underlying
+          // appointment.status here — this is only a display value.
+          const displayStatus = (item.assignedDepartment && item.assignedDepartment !== 'medical' && item.status === 'scheduled')
+            ? 'completed'
+            : item.status;
+
+          return { ...item, displayStatus };
+        });
 
       setRecentAppointments(mapped);
 
@@ -173,6 +191,80 @@ const MedicalDoctorDashboard = () => {
     }
   }, []);
 
+  const handleUpdateAppointment = async (appointmentId, updates) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/appointments/${appointmentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify(updates)
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to update appointment');
+      }
+      await loadDashboard(user.id);
+    } catch (error) {
+      console.error('Update appointment error:', error);
+      alert(error.message || 'Unable to update appointment.');
+    }
+  };
+
+  const handleSendToLaboratory = async (appointmentId) => {
+    await handleUpdateAppointment(appointmentId, {
+      assigned_department: 'laboratory'
+    });
+    alert('Patient assignment sent to laboratory.');
+  };
+
+  const handleSubmitLabResults = async (appointmentId) => {
+    const labResults = window.prompt('Enter laboratory results for this patient:');
+    if (!labResults) return;
+    await handleUpdateAppointment(appointmentId, {
+      assigned_department: 'medical',
+      lab_results: labResults
+    });
+    alert('Lab results have been returned to the medical doctor.');
+  };
+
+  const handleSendToPharmacy = async (appointmentId) => {
+    const medication = window.prompt('Enter medication name (e.g. Amoxicillin 500mg):');
+    if (!medication) return;
+    const pharmacyNotes = window.prompt('Enter pharmacy instructions or notes:');
+    if (!pharmacyNotes) return;
+
+    // Convert ISO timestamp to MySQL-compatible format (YYYY-MM-DD HH:MM:SS)
+    const now = new Date();
+    const mysqlTimestamp = now.toISOString().slice(0, 19).replace('T', ' ');
+
+    await handleUpdateAppointment(appointmentId, {
+      assigned_department: 'pharmacy',
+      pharmacy_notes: pharmacyNotes,
+      pharmacy_medication: medication,
+      pharmacy_dosage: null,
+      pharmacy_assigned_at: mysqlTimestamp
+    });
+    alert('Patient assignment sent to pharmacy.');
+  };
+
+  const handleReferToSpecialist = async (appointmentId) => {
+    const specialist = availableSpecialists[0];
+    if (!specialist) {
+      alert('No specialist available to refer to.');
+      return;
+    }
+    const specialistNotes = window.prompt('Enter specialist referral notes:');
+    if (!specialistNotes) return;
+    await handleUpdateAppointment(appointmentId, {
+      assigned_department: 'specialist',
+      specialist_notes: specialistNotes,
+      referred_specialist_id: specialist.id
+    });
+    alert(`Patient referred to specialist ${specialist.name}.`);
+  };
+
   useEffect(() => {
     const raw = localStorage.getItem('user');
     if (!raw) {
@@ -189,6 +281,7 @@ const MedicalDoctorDashboard = () => {
     setUser(parsed);
     setIsLoading(true);
     loadDashboard(parsed.id);
+    fetchSpecialists();
   }, [navigate, loadDashboard]);
 
   useEffect(() => {
@@ -256,6 +349,26 @@ const MedicalDoctorDashboard = () => {
 
   const handleViewPatientRecords = () => {
     navigate('/patient/medical-records');
+  };
+
+  const fetchSpecialists = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/doctors', {
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        }
+      });
+      if (!response.ok) {
+        return;
+      }
+      const result = await response.json();
+      setAvailableSpecialists(
+        (result.data || []).filter((item) => item.role === 'specialist')
+      );
+    } catch (error) {
+      console.error('Error fetching specialists:', error);
+    }
   };
 
   const handleGeneratePrescription = () => {
@@ -346,6 +459,9 @@ const MedicalDoctorDashboard = () => {
                   ? `Welcome back, ${doctorLabel}`
                   : `Welcome back${user ? `, Dr. ${user.name}` : ''}. Manage patients and appointments.`}
               </p>
+              {user?.id && (
+                <p className="text-xs text-gray-500 mt-1">Doctor ID: {user.id} • Role: {user.role}</p>
+              )}
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
               <button
@@ -473,7 +589,10 @@ const MedicalDoctorDashboard = () => {
                 {recentAppointments.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-500">
-                      No patient appointments yet. Bookings from patients will appear here.
+                      No patient appointments yet. Ensure you are logged in as the correct doctor account.
+                      {user?.id && (
+                        <div className="mt-2 text-xs text-gray-400">Current doctor ID: {user.id}</div>
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -497,18 +616,62 @@ const MedicalDoctorDashboard = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(appointment.status)}`}
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(appointment.displayStatus || appointment.status)}`}
                         >
-                          {getStatusText(appointment.status)}
+                          {getStatusText(appointment.displayStatus || appointment.status)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
-                        <button type="button" className="text-indigo-600 hover:text-indigo-900 mr-3">
+                        <button
+                          type="button"
+                          className="text-indigo-600 hover:text-indigo-900 mr-3"
+                          onClick={() => alert(`Assigned department: ${appointment.assignedDepartment}\nLab results: ${appointment.labResults || 'None'}\nPharmacy notes: ${appointment.pharmacyNotes || 'None'}\nSpecialist notes: ${appointment.specialistNotes || 'None'}`)}
+                        >
                           View
                         </button>
-                        {appointment.status === 'scheduled' && (
-                          <button type="button" className="text-green-600 hover:text-green-900 mr-3">
-                            Start
+                        {appointment.assignedDepartment === 'medical' && appointment.status === 'scheduled' && (
+                          <>
+                            <button
+                              type="button"
+                              className="text-blue-600 hover:text-blue-900 mr-3"
+                              onClick={() => handleSendToLaboratory(appointment.id)}
+                            >
+                              Send to Lab
+                            </button>
+                            <button
+                              type="button"
+                              className="text-purple-600 hover:text-purple-900 mr-3"
+                              onClick={() => handleReferToSpecialist(appointment.id)}
+                            >
+                              Refer Specialist
+                            </button>
+                          </>
+                        )}
+                        {appointment.assignedDepartment === 'laboratory' && (
+                          <button
+                            type="button"
+                            className="text-green-600 hover:text-green-900 mr-3"
+                            onClick={() => handleSubmitLabResults(appointment.id)}
+                          >
+                            Return from Lab
+                          </button>
+                        )}
+                        {appointment.assignedDepartment === 'medical' && appointment.labResults && (
+                          <button
+                            type="button"
+                            className="text-yellow-600 hover:text-yellow-900 mr-3"
+                            onClick={() => handleSendToPharmacy(appointment.id)}
+                          >
+                            Send to Pharmacy
+                          </button>
+                        )}
+                        {appointment.assignedDepartment === 'pharmacy' && (
+                          <button
+                            type="button"
+                            className="text-green-600 hover:text-green-900 mr-3"
+                            onClick={() => handleUpdateAppointment(appointment.id, { status: 'completed' })}
+                          >
+                            Complete
                           </button>
                         )}
                       </td>

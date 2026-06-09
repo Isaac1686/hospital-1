@@ -1,71 +1,141 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const LaboratoryDashboard = () => {
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [authError, setAuthError] = useState(null);
   const [stats, setStats] = useState({
     pendingTests: 0,
     completedTests: 0,
     inProgress: 0,
-    totalPatients: 0
+    totalPatients: 0,
+    totalTests: 0
   });
   const [recentTests, setRecentTests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [queue, setQueue] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [labTasks, setLabTasks] = useState([]);
+  const today = new Date().toISOString().split('T')[0];
   const [showQueue, setShowQueue] = useState(false);
 
-  useEffect(() => {
-    // Simulate loading data
-    setTimeout(() => {
-      setStats({
-        pendingTests: 12,
-        completedTests: 45,
-        inProgress: 8,
-        totalPatients: 23
+  const loadLabTasks = useCallback(async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/laboratory?scheduled_date=${today}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        }
       });
 
-      setRecentTests([
-        { id: 1, patientName: 'John Doe', testType: 'Blood Test', status: 'pending', date: '2026-04-09' },
-        { id: 2, patientName: 'Jane Smith', testType: 'Urine Test', status: 'completed', date: '2026-04-09' },
-        { id: 3, patientName: 'Robert Johnson', testType: 'X-Ray', status: 'in-progress', date: '2026-04-08' },
-        { id: 4, patientName: 'Emily Davis', testType: 'MRI Scan', status: 'completed', date: '2026-04-08' },
-        { id: 5, patientName: 'Michael Wilson', testType: 'Blood Test', status: 'pending', date: '2026-04-08' }
-      ]);
-      setIsLoading(false);
-    }, 1000);
-  }, []);
+      if (!response.ok) {
+        throw new Error('Unable to fetch laboratory tasks.');
+      }
+
+      const data = await response.json();
+      const tasks = data || [];
+      setLabTasks(tasks);
+
+      const uniquePatients = new Set(tasks.map((task) => task.patient?.id || task.patient_id)).size;
+      const pendingCount = tasks.filter((task) => task.status === 'pending').length;
+      const inProgressCount = tasks.filter((task) => task.status === 'in-progress').length;
+      const completedCount = tasks.filter((task) => task.status === 'completed').length;
+
+      setStats({
+        pendingTests: pendingCount,
+        completedTests: completedCount,
+        inProgress: inProgressCount,
+        totalPatients: uniquePatients,
+        totalTests: tasks.length
+      });
+
+      setRecentTests(tasks.slice(0, 5).map((task) => ({
+        id: task.id,
+        patientName: task.patient?.name || 'Unknown',
+        testType: task.test_type || 'Laboratory task',
+        status: task.status || 'pending',
+        date: task.scheduled_date ? new Date(task.scheduled_date).toLocaleDateString() : task.appointment?.appointment_date ? new Date(task.appointment.appointment_date).toLocaleDateString() : 'N/A'
+      })));
+    } catch (error) {
+      console.error('Error loading lab tasks:', error);
+    }
+  }, [today]);
+
+  const loadQueue = useCallback(async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/queue/laboratory?date=${today}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setQueue(data.queue || []);
+      }
+    } catch (error) {
+      console.error('Error fetching queue:', error);
+    }
+  }, [today]);
 
   useEffect(() => {
-    if (showQueue) {
-      const fetchData = async () => {
-        try {
-          const user = JSON.parse(localStorage.getItem('user'));
-          if (!user) return;
-
-          const response = await fetch(`http://localhost:8000/api/queue/doctor?doctor_id=${user.id}&date=${selectedDate}`, {
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            }
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            setQueue(data.queue || []);
-          }
-        } catch (error) {
-          console.error('Error fetching queue:', error);
-        }
-      };
-      fetchData();
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) {
+      navigate('/login');
+      return;
     }
-  }, [selectedDate, showQueue]);
+
+    const currentUser = JSON.parse(storedUser);
+    setUser(currentUser);
+
+    if (!['laboratory', 'laboratorist'].includes(currentUser.role)) {
+      setAuthError('You must be logged in as laboratory staff to access this dashboard.');
+      setIsLoading(false);
+      return;
+    }
+
+    loadLabTasks()
+      .catch((error) => console.error('Error loading lab tasks:', error))
+      .finally(() => setIsLoading(false));
+  }, [navigate, loadLabTasks]);
+
+  useEffect(() => {
+    if (!showQueue) {
+      return;
+    }
+
+    loadQueue();
+  }, [showQueue, loadQueue]);
+
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      loadLabTasks();
+      if (showQueue) {
+        loadQueue();
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    return () => window.removeEventListener('focus', handleWindowFocus);
+  }, [showQueue, loadLabTasks, loadQueue]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      loadLabTasks();
+      if (showQueue) {
+        loadQueue();
+      }
+    }, 20000);
+
+    return () => clearInterval(intervalId);
+  }, [showQueue, loadLabTasks, loadQueue]);
 
   const handleLogout = () => {
     // Clear any authentication tokens or user data
     localStorage.removeItem('authToken');
     localStorage.removeItem('userData');
+    localStorage.removeItem('user');
 
     // Navigate to login page
     navigate('/login');
@@ -74,6 +144,7 @@ const LaboratoryDashboard = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending':
+      case 'scheduled':
         return 'bg-yellow-100 text-yellow-800';
       case 'in-progress':
         return 'bg-blue-100 text-blue-800';
@@ -84,10 +155,59 @@ const LaboratoryDashboard = () => {
     }
   };
 
+  const handleSubmitLabResult = async (task) => {
+    if (!user || !['laboratory', 'laboratorist'].includes(user.role)) {
+      alert('Only laboratory staff can submit lab results.');
+      return;
+    }
+
+    const labResults = window.prompt(
+      `Enter lab results for ${task.patient?.name || 'patient'}:`
+    );
+    if (!labResults) return;
+
+    const appointmentId = task.appointment_id || task.appointment?.id;
+    if (!appointmentId) {
+      alert('Unable to determine appointment ID.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/appointments/${appointmentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({
+          assigned_department: 'medical',
+          lab_results: labResults
+        })
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to submit lab results');
+      }
+      // Update task status to completed instead of filtering it out
+      setLabTasks((prev) =>
+        prev.map((item) =>
+          item.appointment_id === appointmentId
+            ? { ...item, status: 'completed' }
+            : item
+        )
+      );
+      alert('Lab results submitted and sent to medical doctor. Status marked as Complete.');
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Unable to submit lab results.');
+    }
+  };
+
   const getStatusText = (status) => {
     switch (status) {
       case 'pending':
-        return 'Pending';
+      case 'scheduled':
+        return 'Scheduled';
       case 'in-progress':
         return 'In Progress';
       case 'completed':
@@ -98,11 +218,118 @@ const LaboratoryDashboard = () => {
   };
 
   const formatTime = (time) => {
+    if (!time) {
+      return 'TBD';
+    }
+
     const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
+    const hour = parseInt(hours, 10);
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  const handleGenerateReport = () => {
+    const reportDate = new Date(today).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const reportHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Laboratory Report - ${reportDate}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+          h1 { color: #333; border-bottom: 3px solid #4F46E5; padding-bottom: 10px; }
+          h2 { color: #4F46E5; margin-top: 20px; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+          .stat-card { background: #F3F4F6; padding: 15px; border-radius: 8px; border-left: 4px solid #4F46E5; }
+          .stat-label { font-size: 12px; color: #666; text-transform: uppercase; }
+          .stat-value { font-size: 24px; font-weight: bold; color: #1F2937; }
+          table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+          thead { background: #4F46E5; color: white; }
+          th, td { padding: 12px; text-align: left; border-bottom: 1px solid #E5E7EB; }
+          tbody tr:nth-child(even) { background: #F9FAFB; }
+          .footer { margin-top: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #E5E7EB; padding-top: 15px; }
+          .print-only { display: none; }
+          @media print { .print-only { display: block; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Laboratory Dashboard Report</h1>
+          <p><strong>Date:</strong> ${reportDate}</p>
+          <p><strong>Laboratory Staff:</strong> ${user?.name || 'N/A'}</p>
+        </div>
+
+        <div class="stats">
+          <div class="stat-card">
+            <div class="stat-label">Total Tests</div>
+            <div class="stat-value">${stats.totalTests}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Pending Tests</div>
+            <div class="stat-value" style="color: #CA8A04;">${stats.pendingTests}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">In Progress</div>
+            <div class="stat-value" style="color: #2563EB;">${stats.inProgress}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Completed</div>
+            <div class="stat-value" style="color: #16A34A;">${stats.completedTests}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Patients</div>
+            <div class="stat-value">${stats.totalPatients}</div>
+          </div>
+        </div>
+
+        <h2>Laboratory Tasks</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Patient Name</th>
+              <th>Queue #</th>
+              <th>Doctor</th>
+              <th>Status</th>
+              <th>Appointment Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${labTasks.length === 0 ? '<tr><td colspan="6" style="text-align: center; color: #999;">No laboratory tasks for this date.</td></tr>' :
+        labTasks.map((task) => `
+                <tr>
+                  <td>#${task.id}</td>
+                  <td>${task.patient?.name || task.patient_name || 'Unknown'}</td>
+                  <td>#${task.queue_number || '—'}</td>
+                  <td>${task.doctor?.name || task.doctor_name || 'N/A'}</td>
+                  <td>${task.status || 'scheduled'}</td>
+                  <td>${task.appointment_date ? new Date(task.appointment_date).toLocaleDateString() : '—'}</td>
+                </tr>
+              `).join('')
+      }
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <p>Report generated on ${new Date().toLocaleString()}</p>
+          <p>Hospital Management System - Laboratory Report</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '', 'width=1200,height=800');
+    printWindow.document.write(reportHTML);
+    printWindow.document.close();
+    printWindow.print();
   };
 
   if (isLoading) {
@@ -116,17 +343,35 @@ const LaboratoryDashboard = () => {
     );
   }
 
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white p-8 rounded-lg shadow text-center max-w-lg">
+          <h2 className="text-xl font-semibold text-gray-900">Access Denied</h2>
+          <p className="mt-4 text-gray-600">{authError}</p>
+          <button
+            onClick={() => navigate('/login')}
+            className="mt-6 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center py-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Laboratory Dashboard</h1>
               <p className="text-sm text-gray-600">Manage laboratory tests and results</p>
+              <p className="mt-2 text-sm text-gray-500">Showing data for: <span className="font-semibold text-gray-700">{new Date(today).toLocaleDateString()}</span></p>
             </div>
-            <div className="flex space-x-3">
+            <div className="mt-4 lg:mt-0 flex items-center space-x-3">
               <button
                 onClick={() => setShowQueue(!showQueue)}
                 className={`px-4 py-2 rounded-md transition-colors ${showQueue
@@ -136,10 +381,10 @@ const LaboratoryDashboard = () => {
               >
                 {showQueue ? 'Hide Queue' : 'Show Queue'}
               </button>
-              <button className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors">
-                New Test Request
-              </button>
-              <button className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+              <button
+                onClick={handleGenerateReport}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+              >
                 Generate Report
               </button>
               <button
@@ -219,17 +464,11 @@ const LaboratoryDashboard = () => {
 
         {/* Age-Based Queue Section */}
         {showQueue && (
-          <div className="bg-white rounded-lg shadow mb-8">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-medium text-gray-900">Age-Based Patient Queue</h2>
-                <div className="flex items-center space-x-4">
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
+          <>
+            <div className="bg-white rounded-lg shadow mb-8">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-medium text-gray-900">Age-Based Patient Queue</h2>
                   <div className="flex items-center space-x-4 text-sm">
                     <span className="text-gray-600">
                       Total: <span className="font-semibold">{queue.length}</span>
@@ -243,138 +482,142 @@ const LaboratoryDashboard = () => {
                   </div>
                 </div>
               </div>
+
+              {queue.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 text-5xl mb-4">📋</div>
+                  <p className="text-gray-500 text-lg">No patients in queue for this date</p>
+                  <p className="text-gray-400 text-sm mt-2">Patients will appear here when appointments are scheduled</p>
+                </div>
+              ) : (
+                <div className="p-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Priority Queue (50+) */}
+                    <div>
+                      <h3 className="text-md font-semibold text-red-600 mb-4 flex items-center">
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Priority Queue (Age 50+) - Queue Numbers 1-10
+                      </h3>
+                      <div className="space-y-3">
+                        {queue.filter(p => p.priority_level === 'high').slice(0, 10).map((patient) => (
+                          <div key={patient.appointment_id} className="border border-red-200 rounded-lg p-4 bg-red-50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                                  <span className="text-red-600 font-bold">#{patient.queue_number}</span>
+                                </div>
+                                <div>
+                                  <h4 className="font-medium text-gray-900">{patient.patient.name}</h4>
+                                  <div className="flex items-center space-x-3 text-sm text-gray-600 mt-1">
+                                    <span className="font-semibold">Age: {patient.patient.age}</span>
+                                    <span>📞 {patient.patient.phone_number}</span>
+                                    <span>🕐 {formatTime(patient.appointment_time)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                  Priority
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Normal Queue (<50) */}
+                    <div>
+                      <h3 className="text-md font-semibold text-blue-600 mb-4 flex items-center">
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        Normal Queue (Age &lt;50) - Queue Numbers 11+
+                      </h3>
+                      <div className="space-y-3">
+                        {queue.filter(p => p.priority_level === 'normal').map((patient) => (
+                          <div key={patient.appointment_id} className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                  <span className="text-blue-600 font-bold">#{patient.queue_number}</span>
+                                </div>
+                                <div>
+                                  <h4 className="font-medium text-gray-900">{patient.patient.name}</h4>
+                                  <div className="flex items-center space-x-3 text-sm text-gray-600 mt-1">
+                                    <span className="font-semibold">Age: {patient.patient.age}</span>
+                                    <span>📞 {patient.patient.phone_number}</span>
+                                    <span>🕐 {formatTime(patient.appointment_time)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  Normal
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Queue Legend */}
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Queue Priority System</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
+                        <div>
+                          <span className="font-medium text-red-600">Priority Patients (50+ years)</span>
+                          <p className="text-gray-600">Queue numbers 1-10 - Served first</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-4 h-4 bg-blue-100 border border-blue-200 rounded"></div>
+                        <div>
+                          <span className="font-medium text-blue-600">Normal Patients (&lt;50 years)</span>
+                          <p className="text-gray-600">Queue numbers 11+ - Served after priority</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-
-            {queue.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-gray-400 text-5xl mb-4">📋</div>
-                <p className="text-gray-500 text-lg">No patients in queue for this date</p>
-                <p className="text-gray-400 text-sm mt-2">Patients will appear here when appointments are scheduled</p>
-              </div>
-            ) : (
-              <div className="p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Priority Queue (50+) */}
-                  <div>
-                    <h3 className="text-md font-semibold text-red-600 mb-4 flex items-center">
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                      Priority Queue (Age 50+) - Queue Numbers 1-10
-                    </h3>
-                    <div className="space-y-3">
-                      {queue.filter(p => p.priority_level === 'high').slice(0, 10).map((patient) => (
-                        <div key={patient.appointment_id} className="border border-red-200 rounded-lg p-4 bg-red-50">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                                <span className="text-red-600 font-bold">#{patient.queue_number}</span>
-                              </div>
-                              <div>
-                                <h4 className="font-medium text-gray-900">{patient.patient.name}</h4>
-                                <div className="flex items-center space-x-3 text-sm text-gray-600 mt-1">
-                                  <span className="font-semibold">Age: {patient.patient.age}</span>
-                                  <span>📞 {patient.patient.phone_number}</span>
-                                  <span>🕐 {formatTime(patient.appointment_time)}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                Priority
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Normal Queue (<50) */}
-                  <div>
-                    <h3 className="text-md font-semibold text-blue-600 mb-4 flex items-center">
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                      </svg>
-                      Normal Queue (Age &lt;50) - Queue Numbers 11+
-                    </h3>
-                    <div className="space-y-3">
-                      {queue.filter(p => p.priority_level === 'normal').map((patient) => (
-                        <div key={patient.appointment_id} className="border border-blue-200 rounded-lg p-4 bg-blue-50">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                <span className="text-blue-600 font-bold">#{patient.queue_number}</span>
-                              </div>
-                              <div>
-                                <h4 className="font-medium text-gray-900">{patient.patient.name}</h4>
-                                <div className="flex items-center space-x-3 text-sm text-gray-600 mt-1">
-                                  <span className="font-semibold">Age: {patient.patient.age}</span>
-                                  <span>📞 {patient.patient.phone_number}</span>
-                                  <span>🕐 {formatTime(patient.appointment_time)}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                Normal
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Queue Legend */}
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Queue Priority System</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
-                      <div>
-                        <span className="font-medium text-red-600">Priority Patients (50+ years)</span>
-                        <p className="text-gray-600">Queue numbers 1-10 - Served first</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-4 h-4 bg-blue-100 border border-blue-200 rounded"></div>
-                      <div>
-                        <span className="font-medium text-blue-600">Normal Patients (&lt;50 years)</span>
-                        <p className="text-gray-600">Queue numbers 11+ - Served after priority</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          </>
         )}
 
         {/* Recent Tests Table */}
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Recent Laboratory Tests</h2>
+            <h2 className="text-lg font-medium text-gray-900">Laboratory Task Queue</h2>
+            <p className="text-sm text-gray-600">Tasks assigned from medical doctors</p>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Test ID
+                    Appointment ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Queue #
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Patient Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Test Type
+                    Doctor
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
+                    Appointment Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -382,42 +625,51 @@ const LaboratoryDashboard = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {recentTests.map((test) => (
-                  <tr key={test.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      #{test.id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {test.patientName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {test.testType}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(test.status)}`}>
-                        {getStatusText(test.status)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {test.date}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button className="text-indigo-600 hover:text-indigo-900 mr-3">
-                        View
-                      </button>
-                      {test.status === 'pending' && (
-                        <button className="text-green-600 hover:text-green-900 mr-3">
-                          Start
-                        </button>
-                      )}
-                      {test.status === 'in-progress' && (
-                        <button className="text-blue-600 hover:text-blue-900">
-                          Complete
-                        </button>
-                      )}
-                    </td>
+                {labTasks.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">No laboratory tasks assigned yet.</td>
                   </tr>
-                ))}
+                ) : (
+                  labTasks.map((task) => (
+                    <tr key={task.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        #{task.appointment?.id || task.appointment_id || task.id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        #{task.queue_number || '—'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {task.patient?.name || 'Unknown patient'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {task.appointment?.doctor?.name || task.doctor?.name || 'Doctor not assigned'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(task.status)}`}>
+                          {getStatusText(task.status)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {task.scheduled_date ? new Date(task.scheduled_date).toLocaleDateString() : task.appointment?.appointment_date ? new Date(task.appointment.appointment_date).toLocaleDateString() : '—'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button className="text-indigo-600 hover:text-indigo-900 mr-3">
+                          View
+                        </button>
+                        {task.status === 'completed' ? (
+                          <span className="text-green-600 font-semibold">Complete</span>
+                        ) : (
+                          <button
+                            onClick={() => handleSubmitLabResult(task)}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            Submit Results
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -479,7 +731,7 @@ const LaboratoryDashboard = () => {
 
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 
