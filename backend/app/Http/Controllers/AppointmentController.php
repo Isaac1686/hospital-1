@@ -74,9 +74,9 @@ class AppointmentController extends Controller
                 'lab_results' => 'nullable|string|max:2000',
                 'pharmacy_notes' => 'nullable|string|max:2000',
                 'pharmacy_medication' => 'nullable|string|max:255',
-                // `pharmacy_dosage` stores how many times per day the medicine
-                // should be taken. Validate as an integer (1-24).
-                'pharmacy_dosage' => 'nullable|integer|min:1|max:24',
+                // `pharmacy_dosage` stores the full dosage instructions
+                // including units and frequency.
+                'pharmacy_dosage' => 'nullable|string|max:255',
                 'pharmacy_assigned_at' => 'nullable|date',
                 'specialist_notes' => 'nullable|string|max:2000',
             ]);
@@ -257,7 +257,7 @@ class AppointmentController extends Controller
                 'lab_results' => 'sometimes|nullable|string|max:2000',
                 'pharmacy_notes' => 'sometimes|nullable|string|max:2000',
                 'pharmacy_medication' => 'sometimes|nullable|string|max:255',
-                'pharmacy_dosage' => 'sometimes|nullable|integer|min:1|max:24',
+                'pharmacy_dosage' => 'sometimes|nullable|string|max:255',
                 'pharmacy_assigned_at' => 'sometimes|nullable|date',
                 'specialist_notes' => 'sometimes|nullable|string|max:2000',
                 'referred_specialist_id' => 'sometimes|nullable|exists:users,id'
@@ -300,7 +300,7 @@ class AppointmentController extends Controller
             }
 
             if (array_key_exists('pharmacy_dosage', $validated)) {
-                $appointment->pharmacy_dosage = $validated['pharmacy_dosage'];
+                $appointment->pharmacy_dosage = (string) $validated['pharmacy_dosage'];
             }
 
             if (array_key_exists('pharmacy_assigned_at', $validated)) {
