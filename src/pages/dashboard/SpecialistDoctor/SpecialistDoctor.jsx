@@ -55,6 +55,7 @@ const SpecialistDoctorDashboard = () => {
     priorityPatients: 0,
     normalPatients: 0
   });
+  const [specialistTasks, setSpecialistTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
   const [showAddPatientModal, setShowAddPatientModal] = useState(false);
@@ -229,6 +230,30 @@ const SpecialistDoctorDashboard = () => {
     };
 
     fetchQueueStats();
+
+    const fetchSpecialistTasks = async () => {
+      if (!user?.id) return;
+      try {
+        const response = await fetch(
+          `http://localhost:8000/api/appointments?assigned_department=specialist&specialist_id=${user.id}`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            }
+          }
+        );
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        setSpecialistTasks(data || []);
+      } catch (error) {
+        console.error('Error loading specialist referrals:', error);
+      }
+    };
+
+    fetchSpecialistTasks();
   }, [user?.id]);
 
   const doctorLabel = getLoggedInDoctorLabel(user);
@@ -246,6 +271,54 @@ const SpecialistDoctorDashboard = () => {
     // Refresh dashboard data to include the new patient
     if (user?.id) {
       loadDashboard(user.id);
+    }
+  };
+
+  const handleCompleteSpecialistTask = async (appointment) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/appointments/${appointment.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({ status: 'completed' })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to complete specialist referral');
+      }
+
+      setSpecialistTasks((prev) => prev.filter((task) => task.id !== appointment.id));
+      alert('Specialist referral completed.');
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Unable to complete specialist referral.');
+    }
+  };
+
+  const handleSendToLaboratoryFromSpecialist = async (appointment) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/appointments/${appointment.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({ assigned_department: 'laboratory' })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to send patient to laboratory');
+      }
+
+      setSpecialistTasks((prev) => prev.filter((task) => task.id !== appointment.id));
+      alert('Patient assignment sent to laboratory.');
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Unable to send patient to laboratory.');
     }
   };
 
@@ -528,6 +601,60 @@ const SpecialistDoctorDashboard = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
                         <button type="button" className="text-indigo-600 hover:text-indigo-900">
                           View
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow mb-8">
+          <div className="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-medium text-gray-900">Specialist Referral Queue</h2>
+            <p className="text-sm text-gray-600">Referrals assigned to you for consultation.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Appointment ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referral Reason</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned At</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {specialistTasks.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">No specialist referrals assigned to you.</td>
+                  </tr>
+                ) : (
+                  specialistTasks.map((task) => (
+                    <tr key={task.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{task.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.patient?.name || task.patient_name || 'Unknown'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.referred_reason || task.diagnosis || 'Review referral'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.status || 'pending'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(task.created_at || task.updated_at || Date.now()).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          type="button"
+                          onClick={() => handleSendToLaboratoryFromSpecialist(task)}
+                          className="text-indigo-600 hover:text-indigo-900 mr-4"
+                        >
+                          Send to Laboratory
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCompleteSpecialistTask(task)}
+                          className="text-green-600 hover:text-green-900"
+                        >
+                          Complete
                         </button>
                       </td>
                     </tr>

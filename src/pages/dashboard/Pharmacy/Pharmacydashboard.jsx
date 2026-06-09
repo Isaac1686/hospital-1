@@ -10,6 +10,7 @@ const PharmacyDashboard = () => {
     pendingOrders: 0
   });
   const [recentPrescriptions, setRecentPrescriptions] = useState([]);
+  const [pharmacyTasks, setPharmacyTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -21,17 +22,116 @@ const PharmacyDashboard = () => {
         prescriptionsToday: 15,
         pendingOrders: 6
       });
-      
-      setRecentPrescriptions([
-        { id: 1, patientName: 'John Doe', medication: 'Amoxicillin 500mg', dosage: '3x daily', status: 'filled', date: '2026-04-09' },
-        { id: 2, patientName: 'Jane Smith', medication: 'Lisinopril 10mg', dosage: '1x daily', status: 'pending', date: '2026-04-09' },
-        { id: 3, patientName: 'Robert Johnson', medication: 'Metformin 500mg', dosage: '2x daily', status: 'filled', date: '2026-04-08' },
-        { id: 4, patientName: 'Emily Davis', medication: 'Atorvastatin 20mg', dosage: '1x daily', status: 'filled', date: '2026-04-08' },
-        { id: 5, patientName: 'Michael Wilson', medication: 'Omeprazole 20mg', dosage: '1x daily', status: 'pending', date: '2026-04-08' }
-      ]);
+
+
       setIsLoading(false);
     }, 1000);
+
+    const fetchPharmacyTasks = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/appointments?assigned_department=pharmacy', {
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          }
+        });
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        setPharmacyTasks(data || []);
+      } catch (error) {
+        console.error('Error loading pharmacy tasks:', error);
+      }
+    };
+
+    fetchPharmacyTasks();
   }, []);
+
+  const handleCompletePrescription = async (appointment) => {
+    // If dosage is not yet set, ask for it now
+    if (!appointment.pharmacy_dosage) {
+      const dosage = window.prompt(
+        'Enter dosage details for this patient (e.g. "1 tablet twice daily", "2 capsules at bedtime"):'
+      );
+      if (!dosage) return;
+
+      // First, update the appointment with the dosage
+      try {
+        const response = await fetch(`http://localhost:8000/api/appointments/${appointment.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          },
+          body: JSON.stringify({
+            pharmacy_dosage: dosage
+          })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.message || 'Failed to update dosage');
+        }
+
+        // Update local state with new dosage
+        setPharmacyTasks((prev) => prev.map((item) =>
+          item.id === appointment.id
+            ? { ...item, pharmacy_dosage: dosage }
+            : item
+        ));
+      } catch (error) {
+        console.error(error);
+        alert(error.message || 'Unable to update dosage.');
+        return;
+      }
+    }
+
+    // Now confirm completion
+    const confirmed = window.confirm(
+      'Confirm that the patient has completed pharmacy processing and should be marked as complete?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/appointments/${appointment.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({
+          status: 'completed'
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to complete pharmacy task');
+      }
+
+      setPharmacyTasks((prev) => prev.map((item) =>
+        item.id === appointment.id
+          ? { ...item, status: 'completed' }
+          : item
+      ));
+      alert('Pharmacy task completed.');
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Unable to complete pharmacy task.');
+    }
+  };
+
+  const formatDosage = (dosage) => {
+    if (dosage === null || dosage === undefined || dosage === '') {
+      return 'Not specified';
+    }
+    if (typeof dosage === 'number') {
+      return `${dosage}x/day`;
+    }
+    return dosage;
+  };
 
   const handleNewPrescription = () => {
     // Navigate to new prescription form
@@ -55,9 +155,9 @@ const PharmacyDashboard = () => {
 
   const handleFillPrescription = (prescriptionId) => {
     // Update prescription status to filled
-    setRecentPrescriptions(prev => 
-      prev.map(pres => 
-        pres.id === prescriptionId 
+    setRecentPrescriptions(prev =>
+      prev.map(pres =>
+        pres.id === prescriptionId
           ? { ...pres, status: 'filled' }
           : pres
       )
@@ -68,7 +168,7 @@ const PharmacyDashboard = () => {
     // Clear any authentication tokens or user data
     localStorage.removeItem('authToken');
     localStorage.removeItem('userData');
-    
+
     // Navigate to login page
     navigate('/login');
   };
@@ -131,25 +231,25 @@ const PharmacyDashboard = () => {
               <p className="text-sm text-gray-600">Manage medications and prescriptions</p>
             </div>
             <div className="flex space-x-3">
-              <button 
+              <button
                 onClick={handleNewPrescription}
                 className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
               >
                 New Prescription
               </button>
-              <button 
+              <button
                 onClick={handleOrderMedications}
                 className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
               >
                 Order Medications
               </button>
-              <button 
+              <button
                 onClick={handleGenerateReport}
                 className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors"
               >
                 Generate Report
               </button>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center transition-colors duration-200"
               >
@@ -224,66 +324,51 @@ const PharmacyDashboard = () => {
           </div>
         </div>
 
-        {/* Recent Prescriptions Table */}
+
+
+        {/* Pharmacy Task Queue */}
         <div className="bg-white rounded-lg shadow mb-8">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Recent Prescriptions</h2>
+            <h2 className="text-lg font-medium text-gray-900">Pharmacy Task Queue</h2>
+            <p className="text-sm text-gray-600">Tasks assigned to pharmacy from doctor referrals.</p>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Prescription ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Patient Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Medication
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Dosage
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Appointment ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medication</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dosage</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned At</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {recentPrescriptions.map((prescription) => (
-                  <tr key={prescription.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      #{prescription.id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {prescription.patientName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {prescription.medication}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {prescription.dosage}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {prescription.date}
-                    </td>
+                {pharmacyTasks.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">No pharmacy tasks are currently assigned.</td>
+                  </tr>
+                ) : pharmacyTasks.map((task) => (
+                  <tr key={task.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{task.id}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.patient?.name || task.patient_name || 'Unknown'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.pharmacy_medication || task.pharmacy_notes || 'Not specified'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDosage(task.pharmacy_dosage)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.status ? task.status.charAt(0).toUpperCase() + task.status.slice(1) : (task.assigned_department === 'pharmacy' ? 'Pending' : 'Waiting')}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(task.pharmacy_assigned_at || task.updated_at || task.created_at || Date.now()).toLocaleString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button 
-                        onClick={() => handleViewPrescription(prescription.id)}
-                        className="text-indigo-600 hover:text-indigo-900 mr-3"
-                      >
-                        View
-                      </button>
-                      <button 
-                        onClick={() => handleFillPrescription(prescription.id)}
-                        className="text-green-600 hover:text-green-900"
-                      >
-                        Fill
-                      </button>
+                      {task.status === 'completed' ? (
+                        <span className="text-green-600 font-semibold">Completed</span>
+                      ) : (
+                        <button
+                          onClick={() => handleCompletePrescription(task)}
+                          className="text-green-600 hover:text-green-900"
+                        >
+                          Confirm Complete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -291,8 +376,7 @@ const PharmacyDashboard = () => {
             </table>
           </div>
         </div>
-
-              </div>
+      </div>
     </div>
   );
 };

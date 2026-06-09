@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// import Notification from '../../../../components/Notification.jsx';
+import Notification from '../../../components/Notification.jsx';
 
 const PatientDashboard = () => {
   const [user, setUser] = useState(null);
