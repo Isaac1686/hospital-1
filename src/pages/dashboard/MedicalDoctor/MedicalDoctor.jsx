@@ -471,13 +471,7 @@ const MedicalDoctorDashboard = () => {
               >
                 Emergency Cancel
               </button>
-              <button
-                type="button"
-                onClick={handleAddPatient}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
-              >
-                Add Patient
-              </button>
+
               <button
                 type="button"
                 onClick={handleSignOut}
@@ -683,89 +677,7 @@ const MedicalDoctorDashboard = () => {
           </div>
         </div>
 
-        {/* Quick Actions and Patient List */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Quick Actions</h3>
-            </div>
-            <div className="p-6 space-y-3">
-              <button
-                onClick={handleGeneratePrescription}
-                className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">Generate Prescription</span>
-                </div>
-              </button>
-              <button
-                onClick={handleViewPatientRecords}
-                className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">View Patient Records</span>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Recent Patients</h3>
-            </div>
-            <div className="p-6">
-              {recentPatients.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-6">No patients yet from appointments.</p>
-              ) : (
-                <div className="space-y-4">
-                  {recentPatients.map((p, idx) => {
-                    const avatarStyles = [
-                      { bg: 'bg-indigo-100', text: 'text-indigo-600' },
-                      { bg: 'bg-green-100', text: 'text-green-600' },
-                      { bg: 'bg-yellow-100', text: 'text-yellow-600' },
-                      { bg: 'bg-blue-100', text: 'text-blue-600' },
-                      { bg: 'bg-purple-100', text: 'text-purple-600' },
-                      { bg: 'bg-pink-100', text: 'text-pink-600' }
-                    ];
-                    const { bg, text } = avatarStyles[idx % avatarStyles.length];
-                    return (
-                      <div
-                        key={p.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                      >
-                        <div className="flex items-center min-w-0">
-                          <div
-                            className={`w-8 h-8 ${bg} rounded-full flex items-center justify-center shrink-0`}
-                          >
-                            <span className={`text-sm font-medium ${text}`}>{initialsFromName(p.name)}</span>
-                          </div>
-                          <div className="ml-3 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
-                            <p className="text-xs text-gray-500">
-                              Last booking:{' '}
-                              {p.lastVisit
-                                ? new Date(p.lastVisit).toLocaleDateString()
-                                : '—'}
-                            </p>
-                          </div>
-                        </div>
-                        <button type="button" className="text-indigo-600 hover:text-indigo-900 text-sm shrink-0 ml-2">
-                          View
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        {/* Quick Actions and Recent Patients removed per request */}
       </div>
 
       <AddPatientModal
