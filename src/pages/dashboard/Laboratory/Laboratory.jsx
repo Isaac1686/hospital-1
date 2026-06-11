@@ -229,6 +229,17 @@ const LaboratoryDashboard = () => {
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
+  const getReportItemId = (task) => task.appointment?.id || task.appointment_id || task.id;
+  const getReportAppointmentDate = (task) => {
+    if (task.appointment?.appointment_date) {
+      return new Date(task.appointment.appointment_date).toLocaleDateString();
+    }
+    if (task.scheduled_date) {
+      return new Date(task.scheduled_date).toLocaleDateString();
+    }
+    return '—';
+  };
+
   const handleGenerateReport = () => {
     const reportDate = new Date(today).toLocaleDateString('en-US', {
       weekday: 'long',
@@ -306,12 +317,12 @@ const LaboratoryDashboard = () => {
             ${labTasks.length === 0 ? '<tr><td colspan="6" style="text-align: center; color: #999;">No laboratory tasks for this date.</td></tr>' :
         labTasks.map((task) => `
                 <tr>
-                  <td>#${task.id}</td>
+                  <td>#${getReportItemId(task)}</td>
                   <td>${task.patient?.name || task.patient_name || 'Unknown'}</td>
                   <td>#${task.queue_number || '—'}</td>
-                  <td>${task.doctor?.name || task.doctor_name || 'N/A'}</td>
+                  <td>${task.appointment?.doctor?.name || task.doctor?.name || task.doctor_name || 'N/A'}</td>
                   <td>${task.status || 'scheduled'}</td>
-                  <td>${task.appointment_date ? new Date(task.appointment_date).toLocaleDateString() : '—'}</td>
+                  <td>${getReportAppointmentDate(task)}</td>
                 </tr>
               `).join('')
       }
@@ -675,61 +686,7 @@ const LaboratoryDashboard = () => {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-            <div className="space-y-3">
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">Add New Test</span>
-                </div>
-              </button>
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">View All Tests</span>
-                </div>
-              </button>
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900">Generate Report</span>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Test Categories</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm text-gray-600">Blood Tests</span>
-                <span className="text-sm font-medium text-gray-900">15</span>
-              </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm text-gray-600">Urine Tests</span>
-                <span className="text-sm font-medium text-gray-900">8</span>
-              </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm text-gray-600">Radiology</span>
-                <span className="text-sm font-medium text-gray-900">12</span>
-              </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm text-gray-600">Pathology</span>
-                <span className="text-sm font-medium text-gray-900">6</span>
-              </div>
-            </div>
-          </div>
-
-        </div>
+        {/* Quick Actions and Test Categories removed per request */}
       </div>
     </div >
   );
