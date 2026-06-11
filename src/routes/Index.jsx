@@ -9,6 +9,9 @@ import PharmacyDashboard from '../pages/dashboard/Pharmacy/Pharmacydashboard';
 import SpecialistDoctorDashboard from '../pages/dashboard/SpecialistDoctor/SpecialistDoctor';
 import BookAppointment from '../pages/dashboard/Patient/components/BookAppointment';
 import MedicalRecords from '../pages/dashboard/Patient/components/MedicalRecords';
+import NewPrescription from '../pages/dashboard/Pharmacy/NewPrescription';
+import OrderMedications from '../pages/dashboard/Pharmacy/OrderMedications';
+import GenerateReport from '../pages/dashboard/Pharmacy/GenerateReport';
 // import ContactDoctor from '../pages/patient/ContactDoctor';
 // import EmergencyContact from '../pages/patient/EmergencyContact';
 
@@ -28,6 +31,10 @@ const AppRoutes = () => {
         <Route path="/register" element={<Register />} />
         <Route path="/patient/book-appointment" element={<BookAppointment />} />
         <Route path="/patient/medical-records" element={<MedicalRecords />} />
+        {/* Pharmacy routes */}
+        <Route path="/prescriptions/new" element={<NewPrescription />} />
+        <Route path="/medications/order" element={<OrderMedications />} />
+        <Route path="/reports/generate" element={<GenerateReport />} />
         {/* <Route path="/patient/add-medical-record" element={<AddMedicalRecord />} /> */}
         {/* <Route path="/patient/contact-doctor" element={<ContactDoctor />} /> */}
         {/* <Route path="/patient/emergency-contact" element={<EmergencyContact />} /> */}

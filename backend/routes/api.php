@@ -7,6 +7,9 @@ use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\LaboratoryController;
 use App\Http\Controllers\QueueController;
+use App\Http\Controllers\PrescriptionController;
+use App\Http\Controllers\MedicationOrderController;
+use App\Http\Controllers\PharmacyReportController;
 
 Route::post('/register', [RegisterController::class, 'register']);
 Route::post('/login', [LoginController::class, 'login']);
@@ -28,3 +31,12 @@ Route::get('/queue/laboratory', [QueueController::class, 'getLaboratoryQueue']);
 Route::get('/laboratory/report', [QueueController::class, 'getLaboratoryReport']);
 Route::post('/queue/add', [QueueController::class, 'addToQueue']);
 Route::get('/queue/position', [QueueController::class, 'getPatientPosition']);
+
+// Prescription Routes
+Route::apiResource('prescriptions', PrescriptionController::class);
+
+// Medication Order Routes
+Route::apiResource('medication-orders', MedicationOrderController::class);
+
+// Pharmacy Report Routes
+Route::post('/pharmacy/report', [PharmacyReportController::class, 'generate']);
