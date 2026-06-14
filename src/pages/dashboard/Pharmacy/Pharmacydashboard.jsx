@@ -3,30 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 
 const PharmacyDashboard = () => {
   const navigate = useNavigate();
-  const [stats, setStats] = useState({
-    totalMedications: 0,
-    lowStock: 0,
-    prescriptionsToday: 0,
-    pendingOrders: 0
-  });
   const [recentPrescriptions, setRecentPrescriptions] = useState([]);
   const [pharmacyTasks, setPharmacyTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate loading data
-    setTimeout(() => {
-      setStats({
-        totalMedications: 245,
-        lowStock: 8,
-        prescriptionsToday: 15,
-        pendingOrders: 6
-      });
-
-
-      setIsLoading(false);
-    }, 1000);
-
     const fetchPharmacyTasks = async () => {
       try {
         const response = await fetch('http://localhost:8000/api/appointments?assigned_department=pharmacy', {
@@ -36,12 +17,15 @@ const PharmacyDashboard = () => {
           }
         });
         if (!response.ok) {
+          console.error('Failed to load pharmacy tasks:', response.statusText);
           return;
         }
         const data = await response.json();
         setPharmacyTasks(data || []);
       } catch (error) {
         console.error('Error loading pharmacy tasks:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -133,19 +117,9 @@ const PharmacyDashboard = () => {
     return dosage;
   };
 
-  const handleNewPrescription = () => {
-    // Navigate to new prescription form
-    navigate('/prescriptions/new');
-  };
-
-  const handleOrderMedications = () => {
-    // Navigate to medication ordering page
-    navigate('/medications/order');
-  };
-
   const handleGenerateReport = () => {
-    // Navigate to report generation page
-    navigate('/reports/generate');
+    // Navigate to report generation page, passing current visible tasks
+    navigate('/reports/generate', { state: { pharmacyTasks } });
   };
 
   const handleViewPrescription = (prescriptionId) => {
@@ -232,18 +206,6 @@ const PharmacyDashboard = () => {
             </div>
             <div className="flex space-x-3">
               <button
-                onClick={handleNewPrescription}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
-              >
-                New Prescription
-              </button>
-              <button
-                onClick={handleOrderMedications}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
-              >
-                Order Medications
-              </button>
-              <button
                 onClick={handleGenerateReport}
                 className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors"
               >
@@ -265,66 +227,6 @@ const PharmacyDashboard = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-blue-100 rounded-lg p-3">
-                <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V6a2 2 0 012-2h6a2 2 0 012 2v2m7 4a1 1 0 11-2 0 1 1 0 012 0z"></path>
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Medications</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalMedications}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-red-100 rounded-lg p-3">
-                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 2.502-3.016V7.984c0-1.349-1.962-3.016-2.502-3.016H6.838c-1.54 0-2.502 1.667-2.502 3.016v6.984c0 1.349 1.962 3.016 2.502 3.016h6.938c1.54 0 2.502-1.667 2.502-3.016V7.984c0-1.349-1.962-3.016-2.502-3.016z"></path>
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Low Stock Items</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.lowStock}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-green-100 rounded-lg p-3">
-                <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Today's Prescriptions</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.prescriptionsToday}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-yellow-100 rounded-lg p-3">
-                <svg className="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h18v18H3V3zm16 18H5V5h14v16z"></path>
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pending Orders</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pendingOrders}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-
 
         {/* Pharmacy Task Queue */}
         <div className="bg-white rounded-lg shadow mb-8">

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Prescription;
 use App\Models\MedicationOrder;
+use App\Models\Appointment;
 use Illuminate\Http\Request;
 
 class PharmacyReportController extends Controller
@@ -15,28 +16,52 @@ class PharmacyReportController extends Controller
     {
         $validated = $request->validate([
             'report_type' => 'required|string|in:daily,weekly,monthly,yearly,custom',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date'
+            'start_date' => 'required_without:appointment_ids|date',
+            'end_date' => 'required_without:appointment_ids|date|after_or_equal:start_date',
+            'appointment_ids' => 'sometimes|array',
+            'appointment_ids.*' => 'integer'
         ]);
 
-        $startDate = $validated['start_date'];
-        $endDate = $validated['end_date'];
+        // If specific appointment IDs were provided (from the dashboard), use them
+        if ($request->filled('appointment_ids')) {
+            $ids = $request->input('appointment_ids');
 
-        // Get prescription data
-        $prescriptions = Prescription::whereBetween('created_at', [$startDate, $endDate])
-            ->get();
+            // Load appointments and convert to a prescriptions-like collection
+            $appointments = Appointment::whereIn('id', $ids)->get();
 
-        // Get order data
-        $orders = MedicationOrder::whereBetween('created_at', [$startDate, $endDate])
-            ->get();
+            $prescriptions = $appointments->map(function ($appt) {
+                return (object) [
+                    'patient_id' => $appt->patient_id,
+                    'medication_name' => $appt->pharmacy_medication ?? null,
+                    'quantity' => $appt->pharmacy_quantity ?? 1,
+                    'status' => $appt->status ?? null,
+                    'created_at' => $appt->pharmacy_assigned_at ?? $appt->created_at,
+                ];
+            })->filter(fn($p) => !empty($p->medication_name));
+
+            // Medication orders table doesn't have appointment_id in this schema.
+            // We'll leave orders empty when specific appointment IDs are provided.
+            $orders = collect();
+
+            $startDate = $request->input('start_date') ?? null;
+            $endDate = $request->input('end_date') ?? null;
+        } else {
+            $startDate = $validated['start_date'];
+            $endDate = $validated['end_date'];
+
+            // Get prescription data by date range
+            $prescriptions = Prescription::whereBetween('created_at', [$startDate, $endDate])->get();
+
+            // Get order data by date range
+            $orders = MedicationOrder::whereBetween('created_at', [$startDate, $endDate])->get();
+        }
 
         // Calculate summary statistics
         $summary = [
-            'total_prescriptions' => $prescriptions->count(),
-            'total_orders' => $orders->count(),
+            'total_patients' => $prescriptions->pluck('patient_id')->unique()->count(),
+            'total_medications' => $prescriptions->pluck('medication_name')->unique()->count(),
             'total_completed' => $prescriptions->where('status', 'completed')->count(),
             'total_pending' => $prescriptions->where('status', 'active')->count(),
-            'total_value' => $orders->sum(fn($order) => $order->quantity * $order->unit_price)
         ];
 
         // Group prescriptions by medication

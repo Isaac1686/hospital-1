@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\LaboratoryController;
+use App\Http\Controllers\ImagingController;
 use App\Http\Controllers\QueueController;
 use App\Http\Controllers\PrescriptionController;
 use App\Http\Controllers\MedicationOrderController;
@@ -19,6 +20,7 @@ Route::get('/patients', [RegisterController::class, 'listPatients']);
 
 Route::apiResource('appointments', AppointmentController::class);
 Route::apiResource('laboratory', LaboratoryController::class);
+Route::apiResource('imaging', ImagingController::class);
 Route::put('/appointments/{id}/postpone', [AppointmentController::class, 'postpone']);
 Route::post('/appointments/doctor/{doctor}/emergency-cancel', [AppointmentController::class, 'cancelDoctorAppointmentsDueToEmergency']);
 Route::get('/doctors', [DoctorController::class, 'index']);

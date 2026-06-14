@@ -1,28 +1,72 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+
+const formatDate = (date) => date.toISOString().split('T')[0];
+
+const getDateRange = (type) => {
+    const today = new Date();
+    const end = formatDate(today);
+
+    if (type === 'daily') {
+        return { start: end, end };
+    }
+
+    if (type === 'weekly') {
+        const startDate = new Date(today);
+        startDate.setDate(today.getDate() - 7);
+        return { start: formatDate(startDate), end };
+    }
+
+    if (type === 'monthly') {
+        const startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        return { start: formatDate(startDate), end };
+    }
+
+    if (type === 'yearly') {
+        const startDate = new Date(today.getFullYear(), 0, 1);
+        return { start: formatDate(startDate), end };
+    }
+
+    const defaultStart = new Date(today);
+    defaultStart.setDate(today.getDate() - 30);
+    return { start: formatDate(defaultStart), end };
+};
 
 const GenerateReport = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const passedTasks = location.state?.pharmacyTasks || null;
     const [reportType, setReportType] = useState('daily');
-    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [reportData, setReportData] = useState(null);
+    const [startDate, setStartDate] = useState(getDateRange('daily').start);
+    const [endDate, setEndDate] = useState(getDateRange('daily').end);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        const range = getDateRange(reportType);
+        setStartDate(range.start);
+        setEndDate(range.end);
+    }, [reportType]);
 
     const handleGenerateReport = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
 
-        try {
-            // Validate dates
-            if (new Date(startDate) > new Date(endDate)) {
-                setError('Start date must be before end date');
-                setLoading(false);
-                return;
-            }
+        if (!startDate || !endDate) {
+            setError('Start and end dates are required to generate a report.');
+            setLoading(false);
+            return;
+        }
 
+        if (new Date(startDate) > new Date(endDate)) {
+            setError('Start date must be on or before end date.');
+            setLoading(false);
+            return;
+        }
+
+        try {
             const response = await fetch('http://localhost:8000/api/pharmacy/report', {
                 method: 'POST',
                 headers: {
@@ -33,6 +77,7 @@ const GenerateReport = () => {
                     report_type: reportType,
                     start_date: startDate,
                     end_date: endDate
+                    , ...(passedTasks ? { appointment_ids: passedTasks.map(t => t.id) } : {})
                 })
             });
 
@@ -60,7 +105,7 @@ const GenerateReport = () => {
         const content = generateReportContent();
         const element = document.createElement('a');
         element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
-        element.setAttribute('download', `pharmacy_report_${startDate}_to_${endDate}.txt`);
+        element.setAttribute('download', `pharmacy_report_${new Date().toISOString().split('T')[0]}.txt`);
         element.style.display = 'none';
         document.body.appendChild(element);
         element.click();
@@ -72,16 +117,14 @@ const GenerateReport = () => {
 
         let content = `PHARMACY REPORT\n`;
         content += `Report Type: ${reportType.toUpperCase()}\n`;
-        content += `Period: ${startDate} to ${endDate}\n`;
         content += `Generated: ${new Date().toLocaleString()}\n\n`;
 
         if (reportData.summary) {
             content += `SUMMARY\n`;
-            content += `Total Prescriptions: ${reportData.summary.total_prescriptions || 0}\n`;
-            content += `Total Orders: ${reportData.summary.total_orders || 0}\n`;
+            content += `Total Patients: ${reportData.summary.total_patients || 0}\n`;
+            content += `Total Medications: ${reportData.summary.total_medications || 0}\n`;
             content += `Total Completed: ${reportData.summary.total_completed || 0}\n`;
-            content += `Total Pending: ${reportData.summary.total_pending || 0}\n`;
-            content += `Total Value: ₨ ${reportData.summary.total_value || 0}\n\n`;
+            content += `Total Pending: ${reportData.summary.total_pending || 0}\n\n`;
         }
 
         return content;
@@ -117,9 +160,9 @@ const GenerateReport = () => {
                     )}
 
                     <form onSubmit={handleGenerateReport} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="flex justify-center">
                             {/* Report Type */}
-                            <div>
+                            <div className="w-full max-w-md">
                                 <label htmlFor="reportType" className="block text-sm font-medium text-gray-700">
                                     Report Type
                                 </label>
@@ -133,41 +176,16 @@ const GenerateReport = () => {
                                     <option value="weekly">Weekly Report</option>
                                     <option value="monthly">Monthly Report</option>
                                     <option value="yearly">Yearly Report</option>
-                                    <option value="custom">Custom Period</option>
                                 </select>
-                            </div>
-
-                            {/* Start Date */}
-                            <div>
-                                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">
-                                    Start Date
-                                </label>
-                                <input
-                                    type="date"
-                                    id="startDate"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                                />
-                            </div>
-
-                            {/* End Date */}
-                            <div>
-                                <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">
-                                    End Date
-                                </label>
-                                <input
-                                    type="date"
-                                    id="endDate"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                                />
                             </div>
                         </div>
 
+                        <div className="mt-6 text-sm text-gray-500 text-center">
+                            Report range: {startDate} to {endDate}
+                        </div>
+
                         {/* Buttons */}
-                        <div className="flex space-x-4 pt-6">
+                        <div className="flex justify-center space-x-4 pt-6">
                             <button
                                 type="submit"
                                 disabled={loading}
@@ -192,9 +210,6 @@ const GenerateReport = () => {
                         {/* Report Header */}
                         <div className="mb-8 pb-8 border-b-2 border-gray-200">
                             <h2 className="text-3xl font-bold text-gray-900">Pharmacy Report</h2>
-                            <p className="text-gray-600 mt-2">
-                                Period: {startDate} to {endDate}
-                            </p>
                             <p className="text-gray-500 text-sm mt-1">
                                 Generated on: {new Date().toLocaleString()}
                             </p>
@@ -202,55 +217,30 @@ const GenerateReport = () => {
 
                         {/* Summary Stats */}
                         {reportData.summary && (
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                                 <div className="bg-blue-50 rounded-lg p-4">
-                                    <p className="text-sm text-gray-600">Total Prescriptions</p>
+                                    <p className="text-sm text-gray-600">Total Patients</p>
                                     <p className="text-2xl font-bold text-blue-600">
-                                        {reportData.summary.total_prescriptions || 0}
+                                        {reportData.summary.total_patients || 0}
                                     </p>
                                 </div>
                                 <div className="bg-green-50 rounded-lg p-4">
-                                    <p className="text-sm text-gray-600">Total Orders</p>
+                                    <p className="text-sm text-gray-600">Total Medications</p>
                                     <p className="text-2xl font-bold text-green-600">
-                                        {reportData.summary.total_orders || 0}
+                                        {reportData.summary.total_medications || 0}
                                     </p>
                                 </div>
                                 <div className="bg-purple-50 rounded-lg p-4">
-                                    <p className="text-sm text-gray-600">Completed</p>
+                                    <p className="text-sm text-gray-600">Total Completed</p>
                                     <p className="text-2xl font-bold text-purple-600">
                                         {reportData.summary.total_completed || 0}
                                     </p>
                                 </div>
                                 <div className="bg-yellow-50 rounded-lg p-4">
-                                    <p className="text-sm text-gray-600">Pending</p>
+                                    <p className="text-sm text-gray-600">Total Pending</p>
                                     <p className="text-2xl font-bold text-yellow-600">
                                         {reportData.summary.total_pending || 0}
                                     </p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Detailed Stats */}
-                        {reportData.summary && (
-                            <div className="mb-8">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Summary</h3>
-                                <div className="bg-gray-50 rounded-lg p-4">
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div>
-                                            <p className="text-sm text-gray-600">Total Value</p>
-                                            <p className="text-xl font-bold text-gray-900">
-                                                ₨ {parseFloat(reportData.summary.total_value || 0).toFixed(2)}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-gray-600">Avg. Prescription Value</p>
-                                            <p className="text-xl font-bold text-gray-900">
-                                                ₨ {reportData.summary.total_prescriptions > 0
-                                                    ? (reportData.summary.total_value / reportData.summary.total_prescriptions).toFixed(2)
-                                                    : '0.00'}
-                                            </p>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         )}

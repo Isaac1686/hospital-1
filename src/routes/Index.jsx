@@ -7,10 +7,9 @@ import LaboratoryDashboard from '../pages/dashboard/Laboratory/laboratory';
 import MedicalDoctorDashboard from '../pages/dashboard/MedicalDoctor/MedicalDoctor';
 import PharmacyDashboard from '../pages/dashboard/Pharmacy/Pharmacydashboard';
 import SpecialistDoctorDashboard from '../pages/dashboard/SpecialistDoctor/SpecialistDoctor';
+import ImagingDashboard from '../pages/dashboard/Imaging/ImagingDashboard';
 import BookAppointment from '../pages/dashboard/Patient/components/BookAppointment';
 import MedicalRecords from '../pages/dashboard/Patient/components/MedicalRecords';
-import NewPrescription from '../pages/dashboard/Pharmacy/NewPrescription';
-import OrderMedications from '../pages/dashboard/Pharmacy/OrderMedications';
 import GenerateReport from '../pages/dashboard/Pharmacy/GenerateReport';
 // import ContactDoctor from '../pages/patient/ContactDoctor';
 // import EmergencyContact from '../pages/patient/EmergencyContact';
@@ -32,8 +31,6 @@ const AppRoutes = () => {
         <Route path="/patient/book-appointment" element={<BookAppointment />} />
         <Route path="/patient/medical-records" element={<MedicalRecords />} />
         {/* Pharmacy routes */}
-        <Route path="/prescriptions/new" element={<NewPrescription />} />
-        <Route path="/medications/order" element={<OrderMedications />} />
         <Route path="/reports/generate" element={<GenerateReport />} />
         {/* <Route path="/patient/add-medical-record" element={<AddMedicalRecord />} /> */}
         {/* <Route path="/patient/contact-doctor" element={<ContactDoctor />} /> */}
@@ -45,6 +42,7 @@ const AppRoutes = () => {
         <Route path="/medical/dashboard" element={<MedicalDoctorDashboard />} />
         <Route path="/pharmacy/dashboard" element={<PharmacyDashboard />} />
         <Route path="/specialist/dashboard" element={<SpecialistDoctorDashboard />} />
+        <Route path="/imaging/dashboard" element={<ImagingDashboard />} />
         {/* <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/home" element={<Home />} /> */}
 

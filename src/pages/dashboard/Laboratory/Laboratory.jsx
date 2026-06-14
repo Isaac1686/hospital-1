@@ -18,6 +18,8 @@ const LaboratoryDashboard = () => {
   const [labTasks, setLabTasks] = useState([]);
   const today = new Date().toISOString().split('T')[0];
   const [showQueue, setShowQueue] = useState(false);
+  const [reportType, setReportType] = useState('daily');
+  const [showReportTypeMenu, setShowReportTypeMenu] = useState(false);
 
   const loadLabTasks = useCallback(async () => {
     try {
@@ -240,19 +242,62 @@ const LaboratoryDashboard = () => {
     return '—';
   };
 
-  const handleGenerateReport = () => {
-    const reportDate = new Date(today).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const handleGenerateReport = async (selectedType = reportType) => {
+    setReportType(selectedType);
+    setShowReportTypeMenu(false);
 
-    const reportHTML = `
+    // Determine date range based on selected report type
+    const formatISO = (d) => d.toISOString().split('T')[0];
+    const endDate = new Date();
+    let startDate = new Date();
+    let titleLabel = '';
+
+    switch (selectedType) {
+      case 'weekly':
+        // last 7 days including today
+        startDate.setDate(endDate.getDate() - 6);
+        titleLabel = 'Weekly Report';
+        break;
+      case 'monthly':
+        startDate = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+        titleLabel = 'Monthly Report';
+        break;
+      case 'yearly':
+        startDate = new Date(endDate.getFullYear(), 0, 1);
+        titleLabel = 'Yearly Report';
+        break;
+      case 'daily':
+      default:
+        startDate = new Date(endDate);
+        titleLabel = 'Daily Report';
+        break;
+    }
+
+    const start = formatISO(startDate);
+    const end = formatISO(endDate);
+
+    // Fetch laboratory records for the chosen date range
+    try {
+      const params = selectedType === 'daily' ? `?scheduled_date=${formatISO(endDate)}` : `?start_date=${start}&end_date=${end}`;
+      const response = await fetch(`http://localhost:8000/api/laboratory${params}`, {
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch report data');
+      }
+
+      const reportTasks = await response.json();
+
+      const reportDateLabel = selectedType === 'daily' ? new Date(end).toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      }) : `${new Date(start).toLocaleDateString()} — ${new Date(end).toLocaleDateString()}`;
+
+      const reportHTML = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Laboratory Report - ${reportDate}</title>
+        <title>Laboratory Report - ${reportDateLabel}</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
           h1 { color: #333; border-bottom: 3px solid #4F46E5; padding-bottom: 10px; }
@@ -274,7 +319,8 @@ const LaboratoryDashboard = () => {
       <body>
         <div class="header">
           <h1>Laboratory Dashboard Report</h1>
-          <p><strong>Date:</strong> ${reportDate}</p>
+          <p><strong>Period:</strong> ${reportDateLabel}</p>
+          <p><strong>Report Type:</strong> ${titleLabel}</p>
           <p><strong>Laboratory Staff:</strong> ${user?.name || 'N/A'}</p>
         </div>
 
@@ -314,8 +360,8 @@ const LaboratoryDashboard = () => {
             </tr>
           </thead>
           <tbody>
-            ${labTasks.length === 0 ? '<tr><td colspan="6" style="text-align: center; color: #999;">No laboratory tasks for this date.</td></tr>' :
-        labTasks.map((task) => `
+            ${reportTasks.length === 0 ? '<tr><td colspan="6" style="text-align: center; color: #999;">No laboratory tasks for this date range.</td></tr>' :
+          reportTasks.map((task) => `
                 <tr>
                   <td>#${getReportItemId(task)}</td>
                   <td>${task.patient?.name || task.patient_name || 'Unknown'}</td>
@@ -325,7 +371,7 @@ const LaboratoryDashboard = () => {
                   <td>${getReportAppointmentDate(task)}</td>
                 </tr>
               `).join('')
-      }
+        }
           </tbody>
         </table>
 
@@ -337,10 +383,14 @@ const LaboratoryDashboard = () => {
       </html>
     `;
 
-    const printWindow = window.open('', '', 'width=1200,height=800');
-    printWindow.document.write(reportHTML);
-    printWindow.document.close();
-    printWindow.print();
+      const printWindow = window.open('', '', 'width=1200,height=800');
+      printWindow.document.write(reportHTML);
+      printWindow.document.close();
+      printWindow.print();
+    } catch (error) {
+      console.error('Error generating report:', error);
+      alert(error.message || 'Unable to generate report.');
+    }
   };
 
   if (isLoading) {
@@ -382,22 +432,29 @@ const LaboratoryDashboard = () => {
               <p className="text-sm text-gray-600">Manage laboratory tests and results</p>
               <p className="mt-2 text-sm text-gray-500">Showing data for: <span className="font-semibold text-gray-700">{new Date(today).toLocaleDateString()}</span></p>
             </div>
-            <div className="mt-4 lg:mt-0 flex items-center space-x-3">
-              <button
-                onClick={() => setShowQueue(!showQueue)}
-                className={`px-4 py-2 rounded-md transition-colors ${showQueue
-                  ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                  : 'bg-purple-600 hover:bg-purple-700 text-white'
-                  }`}
-              >
-                {showQueue ? 'Hide Queue' : 'Show Queue'}
-              </button>
-              <button
-                onClick={handleGenerateReport}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
-              >
-                Generate Report
-              </button>
+            <div className="mt-4 lg:mt-0 flex items-center space-x-3 relative">
+              <div className="relative">
+                <button
+                  onClick={() => setShowReportTypeMenu((prev) => !prev)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors inline-flex items-center space-x-2"
+                >
+                  <span>Generate Report</span>
+                  <span className="text-sm opacity-80">▾</span>
+                </button>
+                {showReportTypeMenu && (
+                  <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-20">
+                    {['daily', 'weekly', 'monthly', 'yearly'].map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => handleGenerateReport(type)}
+                        className={`w-full text-left px-4 py-2 text-sm ${reportType === type ? 'bg-gray-100 font-semibold' : 'hover:bg-gray-50'}`}
+                      >
+                        {type.charAt(0).toUpperCase() + type.slice(1)} Report
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handleLogout}
                 className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center transition-colors duration-200"
