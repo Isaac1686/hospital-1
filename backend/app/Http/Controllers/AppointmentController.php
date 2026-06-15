@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\Laboratory;
+use App\Models\Imaging;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -32,10 +33,13 @@ class AppointmentController extends Controller
             $query->where('doctor_id', $request->doctor_id);
         }
 
-        // Filter by specialist referral if provided
+        // Filter by specialist referral or specialist doctor if provided
         if ($request->has('specialist_id') || $request->has('referred_specialist_id')) {
             $specialistId = $request->input('specialist_id', $request->input('referred_specialist_id'));
-            $query->where('referred_specialist_id', $specialistId);
+            $query->where(function ($subQuery) use ($specialistId) {
+                $subQuery->where('referred_specialist_id', $specialistId)
+                         ->orWhere('doctor_id', $specialistId);
+            });
         }
 
         // Filter by assigned department if provided
@@ -69,10 +73,10 @@ class AppointmentController extends Controller
                 'appointment_time' => 'nullable|date_format:H:i',
                 'reason' => 'nullable|string|max:255',
                 'symptoms' => 'nullable|string|max:1000',
-                'assigned_department' => 'nullable|in:medical,laboratory,pharmacy,specialist',
+                'assigned_department' => 'nullable|in:medical,laboratory,pharmacy,specialist,imaging',
+                'status' => 'nullable|in:scheduled,waiting,completed,cancelled,postponed',
                 'referred_specialist_id' => 'nullable|exists:users,id',
                 'lab_results' => 'nullable|string|max:2000',
-                'pharmacy_notes' => 'nullable|string|max:2000',
                 'pharmacy_medication' => 'nullable|string|max:255',
                 // `pharmacy_dosage` stores the full dosage instructions
                 // including units and frequency.
@@ -252,8 +256,8 @@ class AppointmentController extends Controller
             $previousAssignedDept = $appointment->assigned_department;
 
             $validated = $request->validate([
-                'status' => 'sometimes|required|in:scheduled,completed,cancelled,postponed',
-                'assigned_department' => 'sometimes|required|in:medical,laboratory,pharmacy,specialist',
+                'status' => 'sometimes|required|in:scheduled,waiting,completed,cancelled,postponed',
+                'assigned_department' => 'sometimes|required|in:medical,laboratory,pharmacy,specialist,imaging',
                 'lab_results' => 'sometimes|nullable|string|max:2000',
                 'pharmacy_notes' => 'sometimes|nullable|string|max:2000',
                 'pharmacy_medication' => 'sometimes|nullable|string|max:255',
@@ -327,8 +331,14 @@ class AppointmentController extends Controller
             $labRecord->doctor_id = $appointment->doctor_id;
             $labRecord->test_type = $appointment->reason ?? $appointment->symptoms ?? 'Laboratory task';
             $labRecord->queue_number = $appointment->queue_number;
-            // Default lab record status mirrors appointment status when still in lab
-            $labRecord->status = $appointment->status === 'scheduled' ? 'pending' : $appointment->status;
+            // Default lab record status maps to a valid laboratory enum value.
+            if ($appointment->status === 'completed') {
+                $labRecord->status = 'completed';
+            } elseif ($appointment->status === 'cancelled') {
+                $labRecord->status = 'cancelled';
+            } else {
+                $labRecord->status = 'pending';
+            }
 
             if (array_key_exists('lab_results', $validated)) {
                 $labRecord->lab_results = $validated['lab_results'];
@@ -341,6 +351,36 @@ class AppointmentController extends Controller
             }
 
             $labRecord->save();
+
+            // Ensure imaging record is created/updated when appointment goes to imaging.
+            if ($appointment->assigned_department === 'imaging' || $previousAssignedDept === 'imaging') {
+                $imagingRecord = Imaging::firstOrNew(['appointment_id' => $appointment->id]);
+                $imagingRecord->patient_id = $appointment->patient_id;
+                $imagingRecord->doctor_id = $appointment->doctor_id;
+                $imagingRecord->test_type = $appointment->reason ?? $appointment->symptoms ?? 'Imaging task';
+                $imagingRecord->queue_number = $appointment->queue_number;
+                // Map appointment status into valid imaging enum
+                if ($appointment->status === 'completed') {
+                    $imagingRecord->status = 'completed';
+                } elseif ($appointment->status === 'cancelled') {
+                    $imagingRecord->status = 'cancelled';
+                } else {
+                    $imagingRecord->status = 'pending';
+                }
+
+                if (array_key_exists('lab_results', $validated)) {
+                    // keep any imaging-specific results separate if provided
+                    $imagingRecord->imaging_results = $validated['lab_results'];
+                }
+
+                // If appointment was in imaging and is now routed back to specialist,
+                // mark imaging record as completed
+                if ($previousAssignedDept === 'imaging' && $appointment->assigned_department === 'specialist') {
+                    $imagingRecord->status = 'completed';
+                }
+
+                $imagingRecord->save();
+            }
 
             // Load relationships for response
             $appointment->load(['doctor', 'patient']);

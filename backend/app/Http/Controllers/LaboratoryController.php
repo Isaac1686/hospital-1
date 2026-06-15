@@ -7,6 +7,7 @@ use App\Models\Laboratory;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class LaboratoryController extends Controller
@@ -38,6 +39,14 @@ class LaboratoryController extends Controller
         // the lab record was created (i.e. the day the patient was sent to laboratory).
         if ($request->has('scheduled_date')) {
             $query->whereDate('created_at', $request->input('scheduled_date'));
+        }
+
+        // Support date range filtering when generating reports from the frontend.
+        // Client may supply `start_date` and `end_date` (YYYY-MM-DD).
+        if ($request->has('start_date') && $request->has('end_date')) {
+            $start = $request->input('start_date');
+            $end = $request->input('end_date');
+            $query->whereDate('created_at', '>=', $start)->whereDate('created_at', '<=', $end);
         }
 
         $labRecords = $query->orderBy('created_at', 'desc')->get();

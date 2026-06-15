@@ -68,6 +68,16 @@ class DoctorSeeder extends Seeder
                 'role' => 'specialist',
                 'specialty' => 'Dermatology'
             ],
+            [
+                'name' => 'Dr. Imaging Specialist',
+                'email' => 'imaging@hospital.com',
+                'password' => 'imaging123',
+                'phone_number' => '+1234567800',
+                'age' => 39,
+                'gender' => 'female',
+                'role' => 'imaging',
+                'specialty' => 'Imaging'
+            ],
         ];
 
         // Medical Doctors with specific specialties
