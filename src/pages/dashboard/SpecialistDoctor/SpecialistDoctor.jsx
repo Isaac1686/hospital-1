@@ -436,10 +436,7 @@ const SpecialistDoctorDashboard = () => {
 
   const handleOpenSendToImagingModal = (task) => {
     setSelectedTask(task);
-    setImagingRequestDetails(
-      task.specialistNotes ||
-        "Request X-ray, ultrasound, or CT scan details here.",
-    );
+    setImagingRequestDetails("");
     setSendToImagingError("");
     setShowSendToImagingModal(true);
   };
@@ -970,49 +967,160 @@ const SpecialistDoctorDashboard = () => {
       />
 
       {showViewModal && selectedTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl ring-1 ring-black/10">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Referral Details
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-6 backdrop-blur-md">
+          <div className="w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-2xl animate-modal-enter border border-slate-200">
+            {/* Elegant Top Header (Classic Paper Style) - Scaled 75% */}
+            <div className="border-b-[3px] border-slate-900 bg-white px-6 py-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-xl font-serif font-bold text-slate-900 tracking-tight uppercase">
+                    Medical Referral Report
+                  </h2>
+                  <p className="mt-0.5 text-[9px] font-medium text-slate-500 uppercase tracking-widest">
+                    Apt ID: #{selectedTask.id}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={handleCloseViewModal}
+                    className="text-slate-400 hover:text-slate-900 transition-colors"
+                  >
+                    <svg
+                      className="h-6 w-6"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.5"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Patient Profile Bar (Unified) - Compacted */}
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 border-t border-b border-slate-100 py-3">
+                <div>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-0.5">
+                    Patient Name
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">
+                    {selectedTask.patientName}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-0.5">
+                    Patient ID
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">
+                    #{selectedTask.patientId}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-0.5">
+                    Department
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">
+                    {selectedTask.assignedDepartment?.toUpperCase()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-0.5">
+                    Status
+                  </p>
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                      selectedTask.status === "completed"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : "bg-amber-50 text-amber-700 border border-amber-200"
+                    }`}
+                  >
+                    {getStatusText(selectedTask.status)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Report Body - More Compact */}
+            <div className="max-h-[55vh] overflow-y-auto px-6 py-6 bg-slate-50/30">
+              <div className="space-y-8">
+                {/* Section 1: Clinical Context */}
+                <section>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-[9px] font-black text-slate-900 uppercase tracking-[0.3em]">
+                      I. Specialist Narrative
+                    </h3>
+                    <div className="h-px flex-1 bg-slate-200"></div>
+                  </div>
+                  <div className="bg-white p-4 rounded border border-slate-200 shadow-sm leading-relaxed">
+                    <p className="text-slate-700 text-xs whitespace-pre-wrap italic font-serif">
+                      {selectedTask.specialistNotes ||
+                        "No specific specialist narrative recorded."}
+                    </p>
+                  </div>
+                </section>
+
+                {/* Section 2: Diagnostics (Radiology) */}
+                <section>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-[9px] font-black text-slate-900 uppercase tracking-[0.3em]">
+                      II. Radiology Findings
+                    </h3>
+                    <div className="h-px flex-1 bg-slate-200"></div>
+                  </div>
+                  <div className="bg-white overflow-hidden rounded border border-slate-200 shadow-sm">
+                    <div className="bg-slate-900 px-3 py-1.5 flex justify-between items-center">
+                      <span className="text-[8px] font-bold text-white uppercase tracking-widest">
+                        Type: {selectedTask.imagingType || "Standard"}
+                      </span>
+                      <span className="text-[8px] font-medium text-slate-400">
+                        {new Date().toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-[11px] font-mono text-slate-800 bg-slate-50 p-3 border border-slate-100 rounded leading-relaxed">
+                        {selectedTask.imagingResults ||
+                          "REPORT PENDING: No results submitted."}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Section 3: Diagnostics (Laboratory) */}
+                <section>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-[9px] font-black text-slate-900 uppercase tracking-[0.3em]">
+                      III. Laboratory Data
+                    </h3>
+                    <div className="h-px flex-1 bg-slate-200"></div>
+                  </div>
+                  <div className="bg-white p-4 rounded border border-slate-200 shadow-sm">
+                    <p className="text-xs text-slate-700 leading-relaxed">
+                      {selectedTask.labResults ||
+                        "DATA UNAVAILABLE: Laboratory processing pending."}
+                    </p>
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            {/* Professional Footer - Compact */}
+            <div className="border-t border-slate-200 bg-white px-6 py-4 flex items-center justify-between">
+              <div className="text-[8px] text-slate-400 uppercase tracking-widest">
+                Medical Record • {new Date().toLocaleDateString()}
+              </div>
               <button
                 type="button"
                 onClick={handleCloseViewModal}
-                className="text-gray-500 hover:text-gray-700"
+                className="rounded-sm bg-slate-900 px-6 py-2 text-[10px] font-bold text-white uppercase tracking-widest shadow-md hover:bg-slate-800 transition-all active:translate-y-0.5"
               >
-                Close
+                Close Report
               </button>
-            </div>
-            <div className="space-y-4 p-6 text-sm text-gray-700">
-              <div>
-                <p className="font-medium text-gray-900">Patient</p>
-                <p>{selectedTask.patientName}</p>
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">Status</p>
-                <p>{getStatusText(selectedTask.status)}</p>
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">Department</p>
-                <p>{selectedTask.assignedDepartment}</p>
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">Specialist Notes</p>
-                <p>{selectedTask.specialistNotes || "No details available."}</p>
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">
-                  Imaging Results ({selectedTask.imagingType || "N/A"})
-                </p>
-                <p className="whitespace-pre-wrap">
-                  {selectedTask.imagingResults || "No results available yet."}
-                </p>
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">Lab Results</p>
-                <p>{selectedTask.labResults || "No results available yet."}</p>
-              </div>
             </div>
           </div>
         </div>
@@ -1091,37 +1199,90 @@ const SpecialistDoctorDashboard = () => {
       )}
 
       {showSendToImagingModal && selectedTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="w-full max-w-xl rounded-xl bg-white shadow-xl ring-1 ring-black/10">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Send Patient to Imaging
-              </h3>
-              <button
-                type="button"
-                onClick={handleCloseSendToImagingModal}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                Close
-              </button>
-            </div>
-            <div className="space-y-4 p-6 text-sm text-gray-700">
-              <div>
-                <p className="font-medium text-gray-900">Patient</p>
-                <p>{selectedTask.patientName}</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-6 backdrop-blur-md">
+          <div className="w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-2xl animate-modal-enter border border-slate-200">
+            {/* Form Header (Classic Paper Style) */}
+            <div className="border-b-[3px] border-purple-600 bg-white px-6 py-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-xl font-serif font-bold text-slate-900 tracking-tight uppercase flex items-center gap-2">
+                    <svg
+                      className="h-5 w-5 text-purple-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                      />
+                    </svg>
+                    Imaging Request Form
+                  </h2>
+                  <p className="mt-0.5 text-[9px] font-medium text-slate-500 uppercase tracking-widest">
+                    Referral Order for Appointment #{selectedTask.id}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseSendToImagingModal}
+                  className="text-slate-400 hover:text-slate-900 transition-colors"
+                >
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.5"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
               </div>
-              <div>
+
+              {/* Patient Brief */}
+              <div className="mt-4 flex items-center gap-6 border-t border-slate-100 pt-3">
+                <div>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-0.5">
+                    Patient Name
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">
+                    {selectedTask.patientName}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-0.5">
+                    Patient ID
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">
+                    #{selectedTask.patientId}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Form Body */}
+            <div className="px-6 py-6 space-y-6 bg-slate-50/30">
+              {/* Investigation Type */}
+              <div className="space-y-1.5">
                 <label
                   htmlFor="imagingType"
-                  className="block text-sm font-medium text-gray-700"
+                  className="text-[9px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-2"
                 >
-                  Imaging Type
+                  <span className="h-1 w-1 bg-purple-600 rounded-full"></span>
+                  I. Select Investigation Type
                 </label>
                 <select
                   id="imagingType"
                   value={imagingType}
                   onChange={(e) => setImagingType(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="block w-full rounded border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-purple-500 focus:ring-purple-500 transition-all"
                 >
                   <option value="X-ray">X-ray</option>
                   <option value="Ultrasound">Ultrasound</option>
@@ -1135,48 +1296,51 @@ const SpecialistDoctorDashboard = () => {
                   </option>
                 </select>
               </div>
-              <div>
+
+              {/* Request Details */}
+              <div className="space-y-1.5">
                 <label
                   htmlFor="imagingRequestDetails"
-                  className="block text-sm font-medium text-gray-700"
+                  className="text-[9px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-2"
                 >
-                  Imaging Request Details
+                  <span className="h-1 w-1 bg-purple-600 rounded-full"></span>
+                  II. Clinical Instructions & Reason
                 </label>
                 <textarea
                   id="imagingRequestDetails"
                   value={imagingRequestDetails}
                   onChange={(e) => setImagingRequestDetails(e.target.value)}
                   rows={5}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  placeholder="Describe the imaging requested, like X-ray, ultrasound, CT scan, body part, and any special notes."
+                  className="block w-full rounded border-slate-200 bg-white px-4 py-3 text-xs italic font-serif text-slate-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 transition-all leading-relaxed"
+                  placeholder="Describe the clinical objective, targeted anatomy, and any contraindications..."
                 />
                 {sendToImagingError && (
-                  <p className="mt-2 text-sm text-red-600">
+                  <p className="mt-1 text-[10px] font-bold text-red-600 uppercase tracking-tighter">
                     {sendToImagingError}
                   </p>
                 )}
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">
-                  This note will be attached to the imaging request and visible
-                  to the imaging department.
+                <p className="mt-2 text-[9px] text-slate-400 italic">
+                  * This clinical narrative will be appended to the official
+                  radiology order.
                 </p>
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 border-t px-6 py-4">
+
+            {/* Form Footer */}
+            <div className="border-t border-slate-200 bg-white px-6 py-4 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={handleCloseSendToImagingModal}
-                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-sm bg-white border border-slate-300 px-6 py-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmSendToImaging}
-                className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+                className="rounded-sm bg-purple-600 px-8 py-2.5 text-[10px] font-bold text-white uppercase tracking-widest shadow-lg hover:bg-purple-700 transition-all active:translate-y-0.5"
               >
-                Send to Imaging
+                Authorize & Send
               </button>
             </div>
           </div>
