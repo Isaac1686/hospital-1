@@ -19,6 +19,7 @@ const BookAppointment = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [notification, setNotification] = useState(null);
+  const [queueInfo, setQueueInfo] = useState(null);
   const [editFormData, setEditFormData] = useState({
     date: ''
   });
@@ -34,6 +35,7 @@ const BookAppointment = () => {
       type,
       queueData
     });
+    setQueueInfo(queueData && queueData.in_queue ? queueData : null);
   };
 
   const hideNotification = () => {
@@ -243,7 +245,7 @@ const BookAppointment = () => {
       if (response.ok) {
         // Get queue position after booking
         try {
-          const queueResponse = await fetch(`http://localhost:8000/api/queue/position?patient_id=${user?.id}&doctor_id=${formData.doctorId}`, {
+          const queueResponse = await fetch(`http://localhost:8000/api/queue/position?patient_id=${user?.id}&doctor_id=${formData.doctorId}&date=${formData.date}`, {
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
@@ -252,13 +254,18 @@ const BookAppointment = () => {
 
           if (queueResponse.ok) {
             const queueData = await queueResponse.json();
-            const priorityLevel = user?.age >= 50 ? 'Priority (50+ years)' : 'Normal';
-            showNotification(
-              `Appointment booked successfully! Queue Position: #${queueData.queue_position}, Priority Level: ${priorityLevel}, Estimated Wait Time: ${queueData.estimated_wait_time} minutes`,
-              'success',
-              queueData
-            );
+            if (queueData?.in_queue) {
+              const priorityLevel = user?.age >= 50 ? 'Priority (50+ years)' : 'Normal';
+              showNotification(
+                `Appointment booked successfully! Queue Position: #${queueData.queue_position}, Priority Level: ${priorityLevel}, Estimated Wait Time: ${queueData.estimated_wait_time} minutes`,
+                'success',
+                queueData
+              );
+            } else {
+              showNotification('Appointment booked successfully! Queue details were not found yet.', 'success');
+            }
           } else {
+            console.error('Queue position request failed:', queueResponse.status);
             showNotification('Appointment booked successfully!', 'success');
           }
         } catch (queueError) {
@@ -803,6 +810,21 @@ const BookAppointment = () => {
         </div>
       )}
 
+      {queueInfo && (
+        <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900">
+          <p className="font-semibold text-emerald-700">Queue details for your booked appointment</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center justify-between rounded-xl bg-white/80 px-4 py-3 shadow-sm">
+              <span className="text-gray-700">Queue position</span>
+              <span className="font-semibold text-emerald-900">#{queueInfo.queue_position}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-xl bg-white/80 px-4 py-3 shadow-sm">
+              <span className="text-gray-700">Estimated wait</span>
+              <span className="font-semibold text-emerald-900">{queueInfo.estimated_wait_time} minutes</span>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Notification Component */}
       <Notification notification={notification} onClose={hideNotification} />
     </div>
