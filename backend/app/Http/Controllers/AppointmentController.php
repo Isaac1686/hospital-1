@@ -33,10 +33,13 @@ class AppointmentController extends Controller
             $query->where('doctor_id', $request->doctor_id);
         }
 
-        // Filter by specialist referral if provided
+        // Filter by specialist referral or specialist doctor if provided
         if ($request->has('specialist_id') || $request->has('referred_specialist_id')) {
             $specialistId = $request->input('specialist_id', $request->input('referred_specialist_id'));
-            $query->where('referred_specialist_id', $specialistId);
+            $query->where(function ($subQuery) use ($specialistId) {
+                $subQuery->where('referred_specialist_id', $specialistId)
+                         ->orWhere('doctor_id', $specialistId);
+            });
         }
 
         // Filter by assigned department if provided

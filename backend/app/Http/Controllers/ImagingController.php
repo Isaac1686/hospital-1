@@ -120,19 +120,26 @@ class ImagingController extends Controller
 
             $record->update($validated);
 
-            // If imaging completed, route appointment back to specialist
+            // If imaging completed, route appointment to the appropriate specialist.
             if (isset($validated['status']) && $validated['status'] === 'completed') {
                 $appointment = Appointment::find($record->appointment_id);
                 if ($appointment) {
                     $appointment->assigned_department = 'specialist';
-                    // Keep referred_specialist_id as-is so it returns to the correct specialist
                     $appointment->status = 'scheduled';
-                    // If imaging results provided, append them to specialist notes
-                    if (array_key_exists('imaging_results', $validated) && $validated['imaging_results']) {
+
+                    $specialist = $this->determineSpecialistBasedOnImaging(
+                        $record->test_type,
+                        $validated['imaging_results'] ?? $record->imaging_results,
+                        $appointment->referred_specialist_id
+                    );
+
+                    if ($specialist) {
+                        $appointment->referred_specialist_id = $specialist->id;
                         $existing = $appointment->specialist_notes ?? '';
-                        $note = "Imaging results:\n" . $validated['imaging_results'];
-                        $appointment->specialist_notes = trim($existing . "\n\n" . $note);
+                        $referralNote = "Recommended specialist: " . $specialist->name . " (" . $specialist->specialty . ")";
+                        $appointment->specialist_notes = trim($existing . "\n\n" . $referralNote);
                     }
+
                     $appointment->save();
                 }
             }
@@ -155,5 +162,71 @@ class ImagingController extends Controller
         $record = Imaging::findOrFail($id);
         $record->delete();
         return response()->json(['message' => 'Imaging record deleted successfully.']);
+    }
+
+    private function determineSpecialistBasedOnImaging(?string $testType, ?string $imagingResults, ?int $currentSpecialistId): ?User
+    {
+        // Prefer the previously referred specialist when the appointment already has one.
+        if ($currentSpecialistId) {
+            $specialist = User::where('id', $currentSpecialistId)
+                ->where('role', 'specialist')
+                ->first();
+
+            if ($specialist) {
+                return $specialist;
+            }
+        }
+
+        $specialtyMap = [
+            'xray' => 'Orthopedics',
+            'ultrasound' => 'Pediatrics',
+            'ct_scan' => 'Neurology',
+            'mri' => 'Neurology',
+            'echo' => 'Cardiology',
+            'cardiac' => 'Cardiology',
+            'brain' => 'Neurology',
+            'spine' => 'Orthopedics',
+            'bone' => 'Orthopedics',
+            'skin' => 'Dermatology',
+            'dermatology' => 'Dermatology',
+        ];
+
+        $testTypeLower = strtolower(trim($testType ?? ''));
+        $desiredSpecialty = null;
+
+        if (!empty($testTypeLower)) {
+            foreach ($specialtyMap as $key => $specialty) {
+                if (str_contains($testTypeLower, $key)) {
+                    $desiredSpecialty = $specialty;
+                    break;
+                }
+            }
+        }
+
+        if (empty($desiredSpecialty) && !empty($imagingResults)) {
+            $resultsLower = strtolower($imagingResults);
+            if (str_contains($resultsLower, 'heart') || str_contains($resultsLower, 'cardiac') || str_contains($resultsLower, 'cardio')) {
+                $desiredSpecialty = 'Cardiology';
+            } elseif (str_contains($resultsLower, 'brain') || str_contains($resultsLower, 'neurology') || str_contains($resultsLower, 'stroke')) {
+                $desiredSpecialty = 'Neurology';
+            } elseif (str_contains($resultsLower, 'joint') || str_contains($resultsLower, 'bone') || str_contains($resultsLower, 'fracture')) {
+                $desiredSpecialty = 'Orthopedics';
+            } elseif (str_contains($resultsLower, 'skin') || str_contains($resultsLower, 'rash') || str_contains($resultsLower, 'dermatitis')) {
+                $desiredSpecialty = 'Dermatology';
+            } elseif (str_contains($resultsLower, 'child') || str_contains($resultsLower, 'pediatric') || str_contains($resultsLower, 'infant')) {
+                $desiredSpecialty = 'Pediatrics';
+            }
+        }
+
+        if (!empty($desiredSpecialty)) {
+            return User::where('role', 'specialist')
+                ->where('specialty', $desiredSpecialty)
+                ->orderBy('id')
+                ->first();
+        }
+
+        return User::where('role', 'specialist')
+            ->orderBy('id')
+            ->first();
     }
 }

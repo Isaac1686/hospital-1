@@ -47,6 +47,15 @@ const SpecialistDoctorDashboard = () => {
     normalPatients: 0
   });
   const [specialistTasks, setSpecialistTasks] = useState([]);
+  const [availableSpecialists, setAvailableSpecialists] = useState([]);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showSendToSpecialistModal, setShowSendToSpecialistModal] = useState(false);
+  const [showSendToImagingModal, setShowSendToImagingModal] = useState(false);
+  const [sendToSpecialistId, setSendToSpecialistId] = useState(null);
+  const [sendToSpecialistError, setSendToSpecialistError] = useState('');
+  const [sendToImagingError, setSendToImagingError] = useState('');
+  const [imagingRequestDetails, setImagingRequestDetails] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
@@ -236,7 +245,7 @@ const SpecialistDoctorDashboard = () => {
       if (!user?.id) return;
       try {
         const response = await fetch(
-          `http://localhost:8000/api/appointments?assigned_department=specialist&specialist_id=${user.id}`,
+          `http://localhost:8000/api/appointments?doctor_id=${user.id}`,
           {
             headers: {
               'Content-Type': 'application/json',
@@ -248,13 +257,49 @@ const SpecialistDoctorDashboard = () => {
           return;
         }
         const data = await response.json();
-        setSpecialistTasks(data || []);
+        setSpecialistTasks(
+          (data || []).map((apt) => ({
+            id: apt.id,
+            patientName: apt.patient?.name || apt.patient_name || 'Unknown',
+            patientId: apt.patient_id,
+            queueNumber: apt.queue_number ?? apt.queueNumber ?? '—',
+            time: formatTimeFromIso(apt.created_at),
+            bookedAt: apt.created_at,
+            dateLabel: apt.created_at ? new Date(apt.created_at).toLocaleDateString() : '',
+            type: apt.assigned_department ? `${apt.assigned_department.charAt(0).toUpperCase()}${apt.assigned_department.slice(1)}` : 'Specialist',
+            status: apt.status || 'scheduled',
+            assignedDepartment: apt.assigned_department || 'specialist',
+            specialistNotes: apt.specialist_notes || '',
+            labResults: apt.lab_results || '',
+            referredSpecialistId: apt.referred_specialist_id || null,
+            doctorName: apt.doctor?.name || ''
+          }))
+        );
       } catch (error) {
         console.error('Error loading specialist referrals:', error);
       }
     };
 
+    const fetchSpecialists = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/doctors', {
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          }
+        });
+        if (!response.ok) {
+          return;
+        }
+        const result = await response.json();
+        setAvailableSpecialists((result.data || []).filter((item) => item.role === 'specialist'));
+      } catch (error) {
+        console.error('Error fetching specialists:', error);
+      }
+    };
+
     fetchSpecialistTasks();
+    fetchSpecialists();
   }, [user?.id]);
 
   const doctorLabel = getLoggedInDoctorLabel(user);
@@ -296,7 +341,9 @@ const SpecialistDoctorDashboard = () => {
   const handleCompleteSpecialistTask = async (appointment) => {
     try {
       await handleUpdateAppointment(appointment.id, { status: 'completed' });
-      setSpecialistTasks((prev) => prev.filter((task) => task.id !== appointment.id));
+      setSpecialistTasks((prev) =>
+        prev.map((task) => (task.id === appointment.id ? { ...task, status: 'completed' } : task))
+      );
       alert('Specialist referral completed.');
     } catch (error) {
       console.error(error);
@@ -307,11 +354,124 @@ const SpecialistDoctorDashboard = () => {
   const handleSendToLaboratoryFromSpecialist = async (appointment) => {
     try {
       await handleUpdateAppointment(appointment.id, { assigned_department: 'laboratory' });
-      setSpecialistTasks((prev) => prev.filter((task) => task.id !== appointment.id));
+      setSpecialistTasks((prev) =>
+        prev.map((task) =>
+          task.id === appointment.id
+            ? { ...task, assignedDepartment: 'laboratory', status: 'waiting' }
+            : task
+        )
+      );
       alert('Patient assignment sent to laboratory.');
     } catch (error) {
       console.error(error);
       alert(error.message || 'Unable to send patient to laboratory.');
+    }
+  };
+
+  const handleOpenViewModal = (task) => {
+    setSelectedTask(task);
+    setShowViewModal(true);
+  };
+
+  const handleCloseViewModal = () => {
+    setSelectedTask(null);
+    setShowViewModal(false);
+  };
+
+  const handleOpenSendToSpecialistModal = (task) => {
+    setSelectedTask(task);
+    setSendToSpecialistId(availableSpecialists[0]?.id || null);
+    setSendToSpecialistError('');
+    setShowSendToSpecialistModal(true);
+  };
+
+  const handleCloseSendToSpecialistModal = () => {
+    setSelectedTask(null);
+    setSendToSpecialistId(null);
+    setSendToSpecialistError('');
+    setShowSendToSpecialistModal(false);
+  };
+
+  const handleOpenSendToImagingModal = (task) => {
+    setSelectedTask(task);
+    setImagingRequestDetails(task.specialistNotes || 'Request X-ray, ultrasound, or CT scan details here.');
+    setSendToImagingError('');
+    setShowSendToImagingModal(true);
+  };
+
+  const handleCloseSendToImagingModal = () => {
+    setSelectedTask(null);
+    setImagingRequestDetails('');
+    setSendToImagingError('');
+    setShowSendToImagingModal(false);
+  };
+
+  const handleConfirmSendToImaging = async () => {
+    if (!selectedTask) return;
+    if (!imagingRequestDetails.trim()) {
+      setSendToImagingError('Please provide imaging request details before sending.');
+      return;
+    }
+
+    try {
+      await handleUpdateAppointment(selectedTask.id, {
+        assigned_department: 'imaging',
+        status: 'waiting',
+        specialist_notes: imagingRequestDetails,
+        imaging_request_details: imagingRequestDetails
+      });
+      setSpecialistTasks((prev) =>
+        prev.map((task) =>
+          task.id === selectedTask.id
+            ? {
+              ...task,
+              status: 'waiting',
+              assignedDepartment: 'imaging',
+              specialistNotes: imagingRequestDetails
+            }
+            : task
+        )
+      );
+      handleCloseSendToImagingModal();
+      alert('Patient assignment sent to imaging with request details.');
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Unable to send patient to imaging.');
+    }
+  };
+
+  const handleConfirmSendToSpecialist = async () => {
+    if (!selectedTask) return;
+    if (!sendToSpecialistId) {
+      setSendToSpecialistError('Please select a specialist to refer to.');
+      return;
+    }
+
+    try {
+      await handleUpdateAppointment(selectedTask.id, {
+        assigned_department: 'specialist',
+        status: 'waiting',
+        referred_specialist_id: sendToSpecialistId,
+        specialist_notes: selectedTask.specialistNotes || 'Referral after imaging results.'
+      });
+
+      setSpecialistTasks((prev) =>
+        prev.map((task) =>
+          task.id === selectedTask.id
+            ? {
+              ...task,
+              status: 'waiting',
+              assignedDepartment: 'specialist',
+              referredSpecialistId: sendToSpecialistId
+            }
+            : task
+        )
+      );
+      handleCloseSendToSpecialistModal();
+      alert('Patient referred to selected specialist.');
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Unable to send patient to selected specialist.');
     }
   };
 
@@ -321,7 +481,13 @@ const SpecialistDoctorDashboard = () => {
         assigned_department: 'imaging',
         status: 'waiting'
       });
-      setSpecialistTasks((prev) => prev.filter((task) => task.id !== appointment.id));
+      setSpecialistTasks((prev) =>
+        prev.map((task) =>
+          task.id === appointment.id
+            ? { ...task, status: 'waiting', assignedDepartment: 'imaging' }
+            : task
+        )
+      );
       alert('Patient assignment sent to imaging and status set to waiting.');
     } catch (error) {
       console.error(error);
@@ -478,13 +644,6 @@ const SpecialistDoctorDashboard = () => {
               </button>
               <button
                 type="button"
-                onClick={handleAddPatient}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
-              >
-                Add Patient
-              </button>
-              <button
-                type="button"
                 onClick={handleSignOut}
                 className="border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition-colors text-sm font-medium"
               >
@@ -577,79 +736,15 @@ const SpecialistDoctorDashboard = () => {
 
         <div className="bg-white rounded-lg shadow mb-8">
           <div className="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-medium text-gray-900">Patient appointments</h2>
-            <button
-              type="button"
-              onClick={() => user?.id && loadDashboard(user.id)}
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-            >
-              Refresh
-            </button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient Name</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {recentAppointments.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-500">
-                      No patient appointments yet. Bookings from patients will appear here.
-                    </td>
-                  </tr>
-                ) : (
-                  recentAppointments.map((appointment) => (
-                    <tr key={appointment.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{appointment.dateLabel}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-center">{appointment.time}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{appointment.patientName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getTypeColor(appointment.type)}`}>
-                          {appointment.type}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(appointment.status)}`}>
-                          {getStatusText(appointment.status)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleSendToImagingFromAppointment(appointment)}
-                          className="text-purple-600 hover:text-purple-900"
-                        >
-                          Send to Imaging
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow mb-8">
-          <div className="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-medium text-gray-900">Specialist Referral Queue</h2>
-            <p className="text-sm text-gray-600">Referrals assigned to you for consultation.</p>
+            <h2 className="text-lg font-medium text-gray-900">Patient Appointments</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Appointment ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referral Reason</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Queue Number</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned At</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -664,25 +759,38 @@ const SpecialistDoctorDashboard = () => {
                   specialistTasks.map((task) => (
                     <tr key={task.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{task.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.patient?.name || task.patient_name || 'Unknown'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.referred_reason || task.diagnosis || 'Review referral'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.status || 'pending'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(task.created_at || task.updated_at || Date.now()).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.patientName || task.patient?.name || task.patient_name || 'Unknown'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.queueNumber}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{getStatusText(task.status) || 'Pending'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(task.bookedAt || task.created_at || task.updated_at || Date.now()).toLocaleDateString()}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
                           type="button"
-                          onClick={() => handleSendToLaboratoryFromSpecialist(task)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-4"
+                          onClick={() => handleOpenViewModal(task)}
+                          className="text-blue-600 hover:text-blue-900 mr-4"
                         >
-                          Send to Laboratory
+                          View
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSendToImagingFromSpecialist(task)}
-                          className="text-purple-600 hover:text-purple-900 mr-4"
-                        >
-                          Send to Imaging
-                        </button>
+                        {task.assignedDepartment === 'imaging' || task.status === 'waiting' ? (
+                          <span className="text-yellow-600">Waiting</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSendToImagingModal(task)}
+                            className="text-purple-600 hover:text-purple-900 mr-4"
+                          >
+                            Send to Imaging
+                          </button>
+                        )}
+                        {task.assignedDepartment === 'specialist' && task.status === 'completed' && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSendToSpecialistModal(task)}
+                            className="text-indigo-600 hover:text-indigo-900 mr-4"
+                          >
+                            Send to Specialist
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleCompleteSpecialistTask(task)}
@@ -706,6 +814,166 @@ const SpecialistDoctorDashboard = () => {
         onClose={() => setShowAddPatientModal(false)}
         onPatientAdded={handlePatientAdded}
       />
+
+      {showViewModal && selectedTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl ring-1 ring-black/10">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">Referral Details</h3>
+              <button
+                type="button"
+                onClick={handleCloseViewModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Close
+              </button>
+            </div>
+            <div className="space-y-4 p-6 text-sm text-gray-700">
+              <div>
+                <p className="font-medium text-gray-900">Patient</p>
+                <p>{selectedTask.patientName}</p>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Status</p>
+                <p>{getStatusText(selectedTask.status)}</p>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Department</p>
+                <p>{selectedTask.assignedDepartment}</p>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Specialist Notes</p>
+                <p>{selectedTask.specialistNotes || 'No details available.'}</p>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Imaging / Lab Results</p>
+                <p>{selectedTask.labResults || 'No results available yet.'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSendToSpecialistModal && selectedTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="w-full max-w-xl rounded-xl bg-white shadow-xl ring-1 ring-black/10">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">Refer Patient to Specialist</h3>
+              <button
+                type="button"
+                onClick={handleCloseSendToSpecialistModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Close
+              </button>
+            </div>
+            <div className="space-y-4 p-6 text-sm text-gray-700">
+              <div>
+                <p className="font-medium text-gray-900">Patient</p>
+                <p>{selectedTask.patientName}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Select Specialist</label>
+                <select
+                  value={sendToSpecialistId ?? ''}
+                  onChange={(e) => setSendToSpecialistId(Number(e.target.value))}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option value="">Choose specialist</option>
+                  {availableSpecialists.map((specialist) => (
+                    <option key={specialist.id} value={specialist.id}>
+                      {specialist.name || specialist.email}
+                    </option>
+                  ))}
+                </select>
+                {sendToSpecialistError && (
+                  <p className="mt-2 text-sm text-red-600">{sendToSpecialistError}</p>
+                )}
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Notes</p>
+                <p>{selectedTask.specialistNotes || 'Referral after imaging results.'}</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t px-6 py-4">
+              <button
+                type="button"
+                onClick={handleCloseSendToSpecialistModal}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSendToSpecialist}
+                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                Send Referral
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSendToImagingModal && selectedTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="w-full max-w-xl rounded-xl bg-white shadow-xl ring-1 ring-black/10">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">Send Patient to Imaging</h3>
+              <button
+                type="button"
+                onClick={handleCloseSendToImagingModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Close
+              </button>
+            </div>
+            <div className="space-y-4 p-6 text-sm text-gray-700">
+              <div>
+                <p className="font-medium text-gray-900">Patient</p>
+                <p>{selectedTask.patientName}</p>
+              </div>
+              <div>
+                <label htmlFor="imagingRequestDetails" className="block text-sm font-medium text-gray-700">
+                  Imaging Request Details
+                </label>
+                <textarea
+                  id="imagingRequestDetails"
+                  value={imagingRequestDetails}
+                  onChange={(e) => setImagingRequestDetails(e.target.value)}
+                  rows={5}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  placeholder="Describe the imaging requested, like X-ray, ultrasound, CT scan, body part, and any special notes."
+                />
+                {sendToImagingError && (
+                  <p className="mt-2 text-sm text-red-600">{sendToImagingError}</p>
+                )}
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">
+                  This note will be attached to the imaging request and visible to the imaging department.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t px-6 py-4">
+              <button
+                type="button"
+                onClick={handleCloseSendToImagingModal}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSendToImaging}
+                className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+              >
+                Send to Imaging
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

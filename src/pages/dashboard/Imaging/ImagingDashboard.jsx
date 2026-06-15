@@ -166,6 +166,16 @@ const ImagingDashboard = () => {
         fetchImagingRequests();
     };
 
+    const getSpecialistNotes = (request) => {
+        return (
+            request.appointment?.specialist_notes ||
+            request.specialist_notes ||
+            request.imaging_request_details ||
+            request.notes ||
+            ''
+        );
+    };
+
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="bg-white shadow-sm border-b">
@@ -191,7 +201,7 @@ const ImagingDashboard = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
-                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Request an Investigation</h2>
+                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Test results</h2>
                         {errorMessage && (
                             <div className="mb-4 rounded-md bg-red-50 border border-red-200 p-4 text-sm text-red-700">
                                 {errorMessage}
@@ -303,6 +313,7 @@ const ImagingDashboard = () => {
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested By</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Specialist Notes</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
@@ -314,6 +325,7 @@ const ImagingDashboard = () => {
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(request.doctor && request.doctor.name) || request.doctor_id || request.requestedBy}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(request.status || 'pending').charAt(0).toUpperCase() + (request.status || 'pending').slice(1)}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(request.created_at || request.requestedAt).toLocaleString()}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{getSpecialistNotes(request) || <span className="text-gray-400">No specialist notes</span>}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {request.status !== 'completed' ? (
                                                     <button
@@ -328,7 +340,7 @@ const ImagingDashboard = () => {
                                             </td>
                                         </tr>
                                     ))}
-                                    *** End Patch                                </tbody>
+                                </tbody>
                             </table>
                         </div>
                     )}
