@@ -11,17 +11,18 @@ class Imaging extends Model
 {
     use HasFactory;
 
-    protected $table = 'imaging';
+    protected $table = "imaging";
 
     protected $fillable = [
-        'appointment_id',
-        'patient_id',
-        'technician_id',
-        'test_type',
-        'queue_number',
-        'status',
-        'imaging_results',
-        'imaging_attachments',
+        "appointment_id",
+        "patient_id",
+        "doctor_id",
+        "technician_id",
+        "test_type",
+        "queue_number",
+        "status",
+        "imaging_results",
+        "imaging_attachments",
     ];
 
     public function appointment()
@@ -31,11 +32,16 @@ class Imaging extends Model
 
     public function patient()
     {
-        return $this->belongsTo(User::class, 'patient_id');
+        return $this->belongsTo(User::class, "patient_id");
+    }
+
+    public function doctor()
+    {
+        return $this->belongsTo(User::class, "doctor_id");
     }
 
     public function technician()
     {
-        return $this->belongsTo(User::class, 'technician_id');
+        return $this->belongsTo(User::class, "technician_id");
     }
 }
