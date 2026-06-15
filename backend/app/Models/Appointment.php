@@ -63,6 +63,11 @@ class Appointment extends Model
         return $this->hasOne(Laboratory::class, "appointment_id");
     }
 
+    public function imaging(): HasOne
+    {
+        return $this->hasOne(Imaging::class, "appointment_id");
+    }
+
     /**
      * Mark past-day scheduled/postponed appointments as expired.
      */

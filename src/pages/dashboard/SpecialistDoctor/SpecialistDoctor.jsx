@@ -302,6 +302,8 @@ const SpecialistDoctorDashboard = () => {
             assignedDepartment: apt.assigned_department || "specialist",
             specialistNotes: apt.specialist_notes || "",
             labResults: apt.lab_results || "",
+            imagingResults: apt.imaging?.imaging_results || "",
+            imagingType: apt.imaging?.test_type || "",
             referredSpecialistId: apt.referred_specialist_id || null,
             doctorName: apt.doctor?.name || "",
           })),
@@ -1001,8 +1003,14 @@ const SpecialistDoctorDashboard = () => {
               </div>
               <div>
                 <p className="font-medium text-gray-900">
-                  Imaging / Lab Results
+                  Imaging Results ({selectedTask.imagingType || "N/A"})
                 </p>
+                <p className="whitespace-pre-wrap">
+                  {selectedTask.imagingResults || "No results available yet."}
+                </p>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Lab Results</p>
                 <p>{selectedTask.labResults || "No results available yet."}</p>
               </div>
             </div>

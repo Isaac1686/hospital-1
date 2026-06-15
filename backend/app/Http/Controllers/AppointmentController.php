@@ -23,7 +23,7 @@ class AppointmentController extends Controller
     {
         Appointment::expirePastAppointments();
 
-        $query = Appointment::with(["doctor", "patient"]);
+        $query = Appointment::with(["doctor", "patient", "imaging"]);
 
         if ($request->has("patient_id")) {
             $query->where("patient_id", $request->patient_id);
