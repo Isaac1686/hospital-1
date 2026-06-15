@@ -62,6 +62,7 @@ const PatientDashboard = () => {
           // Transform the data and fetch queue positions for scheduled appointments
           const transformedAppointments = await Promise.all(appointmentsData.map(async (apt) => {
             let queuePosition = null;
+            let estimatedWaitTime = null;
 
             // Only fetch queue position for scheduled appointments
             if (apt.status === 'scheduled') {
@@ -77,6 +78,7 @@ const PatientDashboard = () => {
                   const queueData = await queueResponse.json();
                   if (queueData.in_queue) {
                     queuePosition = queueData.queue_position;
+                    estimatedWaitTime = queueData.estimated_wait_time;
                   }
                 }
               } catch (queueError) {
@@ -88,10 +90,11 @@ const PatientDashboard = () => {
               id: apt.id,
               doctor: `Dr. ${apt.doctor?.name || 'Unknown Doctor'}`,
               specialty: apt.doctor?.role === 'medical_doctor' ? 'General Practitioner' : 'Specialist',
-              date: apt.appointment_date ? new Date(apt.appointment_date).toLocaleDateString() : new Date().toLocaleDateString(),
+              date: apt.appointment_date || '',
               time: apt.appointment_time ? formatTime(apt.appointment_time) : '',
               status: apt.status,
               queuePosition: queuePosition,
+              estimatedWaitTime: estimatedWaitTime,
               doctor_id: apt.doctor_id,
               cancellation_reason: apt.cancellation_reason || null
             };
@@ -227,7 +230,7 @@ const PatientDashboard = () => {
 
     // Parse time in HH:MM format
     const [hours, minutes] = timeString.split(':');
-    const hour = parseInt(hours);
+    const hour = parseInt(hours, 10);
     const minute = minutes;
 
     // Convert to 12-hour format
@@ -235,6 +238,17 @@ const PatientDashboard = () => {
     const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
 
     return `${displayHour}:${minute} ${period}`;
+  };
+
+  const formatAppointmentDate = (dateString) => {
+    if (!dateString) return 'No date available';
+
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+      return 'No date available';
+    }
+
+    return date.toLocaleDateString();
   };
 
 
@@ -363,7 +377,7 @@ const PatientDashboard = () => {
                             <svg className="w-5 h-5 mr-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                             </svg>
-                            <span className="font-medium text-gray-700">{new Date(appointment.date).toLocaleDateString()}</span>
+                            <span className="font-medium text-gray-700">{formatAppointmentDate(appointment.date)}</span>
                           </div>
                           <div className="flex items-center bg-gray-50 rounded-lg p-3">
                             <svg className="w-5 h-5 mr-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -379,6 +393,14 @@ const PatientDashboard = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                               </svg>
                               Queue Position: #{appointment.queuePosition}
+                            </div>
+                          )}
+                          {appointment.estimatedWaitTime != null && (
+                            <div className="mt-3 inline-flex items-center px-4 py-2 rounded-full text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg">
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Estimated Wait: {appointment.estimatedWaitTime} minutes
                             </div>
                           )}
                           {/* Action Buttons */}
@@ -476,7 +498,7 @@ const PatientDashboard = () => {
             <div className="mt-3">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Postpone Appointment</h3>
               <p className="text-sm text-gray-600 mb-4">
-                Current appointment: {new Date(selectedAppointment.date).toLocaleDateString()}
+                Current appointment: {formatAppointmentDate(selectedAppointment.date)}
               </p>
               <div className="space-y-4">
                 <div>
@@ -522,7 +544,7 @@ const PatientDashboard = () => {
               <h3 className="text-lg leading-6 font-medium text-gray-900">Cancel Appointment</h3>
               <div className="mt-2 px-7 py-3">
                 <p className="text-sm text-gray-500">
-                  Are you sure you want to cancel your appointment with {selectedAppointment.doctor} on {new Date(selectedAppointment.date).toLocaleDateString()}?
+                  Are you sure you want to cancel your appointment with {selectedAppointment.doctor} on {formatAppointmentDate(selectedAppointment.date)}?
                 </p>
               </div>
               <div className="flex justify-center space-x-3 mt-4">
