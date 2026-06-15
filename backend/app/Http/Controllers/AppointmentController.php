@@ -331,6 +331,7 @@ class AppointmentController extends Controller
                 "specialist_notes" => "sometimes|nullable|string|max:2000",
                 "referred_specialist_id" =>
                     "sometimes|nullable|exists:users,id",
+                "imaging_type" => "sometimes|nullable|string|max:255",
             ]);
 
             // Validate referred specialist role if provided.
@@ -452,8 +453,9 @@ class AppointmentController extends Controller
                 $imagingRecord->patient_id = $appointment->patient_id;
                 $imagingRecord->doctor_id = $appointment->doctor_id;
                 $imagingRecord->test_type =
-                    $appointment->reason ??
-                    ($appointment->symptoms ?? "Imaging task");
+                    $validated["imaging_type"] ??
+                    ($appointment->reason ??
+                        ($appointment->symptoms ?? "Imaging task"));
                 $imagingRecord->queue_number = $appointment->queue_number;
                 // Map appointment status into valid imaging enum
                 if ($appointment->status === "completed") {

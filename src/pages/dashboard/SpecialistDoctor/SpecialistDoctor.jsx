@@ -80,6 +80,7 @@ const SpecialistDoctorDashboard = () => {
   const [sendToSpecialistError, setSendToSpecialistError] = useState("");
   const [sendToImagingError, setSendToImagingError] = useState("");
   const [imagingRequestDetails, setImagingRequestDetails] = useState("");
+  const [imagingType, setImagingType] = useState("X-ray");
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
@@ -463,6 +464,7 @@ const SpecialistDoctorDashboard = () => {
         status: "waiting",
         specialist_notes: imagingRequestDetails,
         imaging_request_details: imagingRequestDetails,
+        imaging_type: imagingType,
       });
       setSpecialistTasks((prev) =>
         prev.map((task) =>
@@ -1099,6 +1101,31 @@ const SpecialistDoctorDashboard = () => {
               <div>
                 <p className="font-medium text-gray-900">Patient</p>
                 <p>{selectedTask.patientName}</p>
+              </div>
+              <div>
+                <label
+                  htmlFor="imagingType"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Imaging Type
+                </label>
+                <select
+                  id="imagingType"
+                  value={imagingType}
+                  onChange={(e) => setImagingType(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option value="X-ray">X-ray</option>
+                  <option value="Ultrasound">Ultrasound</option>
+                  <option value="CT Scan">CT Scan</option>
+                  <option value="MRI">MRI</option>
+                  <option value="Endoscopy">Endoscopy</option>
+                  <option value="Biopsy guidance">Biopsy guidance</option>
+                  <option value="Echocardiography">Echocardiography</option>
+                  <option value="Custom Investigation">
+                    Custom Investigation
+                  </option>
+                </select>
               </div>
               <div>
                 <label
