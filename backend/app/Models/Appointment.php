@@ -6,14 +6,15 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Appointment extends Model
 {
-    public const STATUS_SCHEDULED = 'scheduled';
-    public const STATUS_COMPLETED = 'completed';
-    public const STATUS_CANCELLED = 'cancelled';
-    public const STATUS_POSTPONED = 'postponed';
-    public const STATUS_EXPIRED = 'expired';
+    public const STATUS_SCHEDULED = "scheduled";
+    public const STATUS_COMPLETED = "completed";
+    public const STATUS_CANCELLED = "cancelled";
+    public const STATUS_POSTPONED = "postponed";
+    public const STATUS_EXPIRED = "expired";
 
     public const EXPIRABLE_STATUSES = [
         self::STATUS_SCHEDULED,
@@ -21,32 +22,45 @@ class Appointment extends Model
     ];
 
     protected $fillable = [
-        'patient_id',
-        'doctor_id',
-        'appointment_date',
-        'appointment_time',
-        'reason',
-        'symptoms',
-        'status',
-        'cancellation_reason',
-        'appointment_date',
+        "patient_id",
+        "doctor_id",
+        "appointment_date",
+        "appointment_time",
+        "reason",
+        "symptoms",
+        "status",
+        "queue_number",
+        "assigned_department",
+        "lab_results",
+        "pharmacy_notes",
+        "pharmacy_medication",
+        "pharmacy_dosage",
+        "pharmacy_assigned_at",
+        "specialist_notes",
+        "referred_specialist_id",
+        "cancellation_reason",
     ];
 
     protected function casts(): array
     {
         return [
-            'appointment_date' => 'date',
+            "appointment_date" => "date",
         ];
     }
 
     public function patient(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'patient_id');
+        return $this->belongsTo(User::class, "patient_id");
     }
 
     public function doctor(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'doctor_id');
+        return $this->belongsTo(User::class, "doctor_id");
+    }
+
+    public function laboratory(): HasOne
+    {
+        return $this->hasOne(Laboratory::class, "appointment_id");
     }
 
     /**
@@ -57,9 +71,9 @@ class Appointment extends Model
         $cutoff = ($asOf ?? now())->startOfDay();
 
         return static::query()
-            ->whereIn('status', self::EXPIRABLE_STATUSES)
-            ->where('appointment_date', '<', $cutoff->toDateString())
-            ->update(['status' => self::STATUS_EXPIRED]);
+            ->whereIn("status", self::EXPIRABLE_STATUSES)
+            ->where("appointment_date", "<", $cutoff->toDateString())
+            ->update(["status" => self::STATUS_EXPIRED]);
     }
 
     /**
@@ -70,8 +84,8 @@ class Appointment extends Model
         $today = now()->toDateString();
 
         return $query
-            ->where('status', '!=', self::STATUS_EXPIRED)
-            ->where('appointment_date', '>=', $today);
+            ->where("status", "!=", self::STATUS_EXPIRED)
+            ->where("appointment_date", ">=", $today);
     }
 
     /**
@@ -79,6 +93,6 @@ class Appointment extends Model
      */
     public function scopeForDate(Builder $query, string $date): Builder
     {
-        return $query->whereDate('appointment_date', $date);
+        return $query->whereDate("appointment_date", $date);
     }
 }

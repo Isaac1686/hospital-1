@@ -201,6 +201,33 @@ const BookAppointment = () => {
     setIsSubmitting(true);
 
     try {
+      // Front-end check to prevent duplicate bookings for same doctor/date.
+      const duplicateCheckResponse = await fetch(
+        `http://localhost:8000/api/appointments?patient_id=${user?.id}&doctor_id=${formData.doctorId}&appointment_date=${formData.date}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      if (duplicateCheckResponse.ok) {
+        const duplicateAppointments = await duplicateCheckResponse.json();
+        const hasDuplicate = Array.isArray(duplicateAppointments) && duplicateAppointments.some(
+          (apt) => apt.status === 'scheduled'
+        );
+
+        if (hasDuplicate) {
+          showNotification(
+            'You already made an appointment with this doctor at the selected date. You cannot make it twice.',
+            'error'
+          );
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       // API call to book appointment (without auth for testing)
       const response = await fetch('http://localhost:8000/api/appointments', {
         method: 'POST',

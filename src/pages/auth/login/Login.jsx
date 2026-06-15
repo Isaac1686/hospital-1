@@ -99,6 +99,9 @@ const Login = () => {
         case 'specialist':
           navigate('/specialist/dashboard');
           break;
+        case 'imaging':
+          navigate('/imaging/dashboard');
+          break;
         case 'pharmacy':
         case 'pharmacist':
           navigate('/pharmacy/dashboard');
