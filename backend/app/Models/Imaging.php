@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Imaging extends Model
 {
@@ -24,6 +25,27 @@ class Imaging extends Model
         "imaging_results",
         "imaging_attachments",
     ];
+
+    protected $casts = [
+        "imaging_attachments" => "array",
+    ];
+
+    protected $appends = [
+        "imaging_attachment_urls",
+    ];
+
+    public function getImagingAttachmentUrlsAttribute(): array
+    {
+        $attachments = $this->imaging_attachments ?? [];
+        if (!is_array($attachments)) {
+            return [];
+        }
+
+        return array_map(
+            fn ($path) => Storage::url($path),
+            $attachments,
+        );
+    }
 
     public function appointment()
     {

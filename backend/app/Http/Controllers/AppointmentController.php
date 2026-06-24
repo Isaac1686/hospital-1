@@ -128,6 +128,17 @@ class AppointmentController extends Controller
                 );
             }
 
+            // Infer assigned department from the selected doctor when not explicitly provided.
+            $assignedDepartment = $validated["assigned_department"] ?? null;
+            if (!$assignedDepartment) {
+                $doctor = User::find($validated["doctor_id"]);
+                if ($doctor && $doctor->role === "specialist") {
+                    $assignedDepartment = "specialist";
+                } else {
+                    $assignedDepartment = "medical";
+                }
+            }
+
             // Create appointment with all required fields
             $appointment = Appointment::create([
                 "doctor_id" => $validated["doctor_id"],
@@ -142,8 +153,7 @@ class AppointmentController extends Controller
                     $validated["appointment_date"],
                     User::find($validated["patient_id"])->age ?? 0,
                 ),
-                "assigned_department" =>
-                    $validated["assigned_department"] ?? "medical",
+                "assigned_department" => $assignedDepartment,
                 "referred_specialist_id" =>
                     $validated["referred_specialist_id"] ?? null,
                 "lab_results" => $validated["lab_results"] ?? null,
@@ -151,8 +161,8 @@ class AppointmentController extends Controller
                 "pharmacy_medication" =>
                     $validated["pharmacy_medication"] ?? null,
                 "pharmacy_dosage" => $validated["pharmacy_dosage"] ?? null,
-                "pharmacy_assigned_at" =>
-                    $validated["pharmacy_assigned_at"] ?? null,
+                "pharmacy_assigned_at" => isset($validated["pharmacy_assigned_at"]) && $validated["pharmacy_assigned_at"] !== null
+                    ? Carbon::parse($validated["pharmacy_assigned_at"]) : null,
                 "specialist_notes" => $validated["specialist_notes"] ?? null,
             ]);
 
@@ -390,7 +400,8 @@ class AppointmentController extends Controller
 
             if (array_key_exists("pharmacy_assigned_at", $validated)) {
                 $appointment->pharmacy_assigned_at =
-                    $validated["pharmacy_assigned_at"];
+                    $validated["pharmacy_assigned_at"] !== null
+                    ? Carbon::parse($validated["pharmacy_assigned_at"]) : null;
             }
 
             if (array_key_exists("specialist_notes", $validated)) {

@@ -240,11 +240,17 @@ const BookAppointment = () => {
         body: JSON.stringify({
           doctor_id: formData.doctorId,
           patient_id: user?.id,
-          appointment_date: formData.date
+          appointment_date: formData.date,
+          assigned_department: formData.doctorType === 'specialist' ? 'specialist' : 'medical'
         })
       });
 
       const data = await response.json();
+      console.log('DEBUG BookAppointment: Appointment creation response:', {
+        status: response.status,
+        statusOk: response.ok,
+        data
+      });
 
       if (response.ok) {
         // Get queue position after booking
