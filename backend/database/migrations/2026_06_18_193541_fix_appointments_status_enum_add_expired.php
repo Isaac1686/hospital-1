@@ -24,7 +24,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('appointments', function (Blueprint $table) {
-            $table->enum('status', ['scheduled', 'completed', 'cancelled', 'postponed', 'expired'])
+            $table->enum('status', ['scheduled', 'waiting', 'completed', 'cancelled', 'postponed'])
                 ->default('scheduled')
                 ->change();
         });

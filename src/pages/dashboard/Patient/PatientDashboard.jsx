@@ -45,9 +45,13 @@ const PatientDashboard = () => {
   const fetchPatientData = async () => {
     try {
       // Fetch real appointments for the logged-in patient
-      const userId = JSON.parse(localStorage.getItem('user'))?.id;
+      const userData = JSON.parse(localStorage.getItem('user'));
+      const userId = userData?.id;
+
+      console.log('DEBUG: Fetching appointments for user:', { userId, userData });
 
       if (userId) {
+        console.log('DEBUG: Calling API with patient_id:', userId);
         const appointmentsResponse = await fetch(`http://localhost:8000/api/appointments?patient_id=${userId}`, {
           headers: {
             'Content-Type': 'application/json',
@@ -55,8 +59,11 @@ const PatientDashboard = () => {
           }
         });
 
+        console.log('DEBUG: API Response status:', appointmentsResponse.status);
+
         if (appointmentsResponse.ok) {
           const appointmentsData = await appointmentsResponse.json();
+          console.log('DEBUG: Raw appointments data from API:', appointmentsData);
 
           // Transform the data to match frontend expectations
           // Transform the data and fetch queue positions for scheduled appointments
@@ -113,6 +120,7 @@ const PatientDashboard = () => {
             };
           }));
 
+          console.log('DEBUG: Transformed appointments:', transformedAppointments);
           setAppointments(transformedAppointments);
 
           const emergencyAppointment = transformedAppointments.find(
