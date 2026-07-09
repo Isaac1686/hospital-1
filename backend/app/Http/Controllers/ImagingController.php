@@ -71,7 +71,7 @@ class ImagingController extends Controller
             if ($request->hasFile("attachments")) {
                 $stored = [];
                 foreach ($request->file("attachments") as $file) {
-                    $path = Storage::putFile("public/imaging", $file);
+                    $path = Storage::disk('public')->putFile("imaging", $file);
                     $stored[] = $path;
                 }
                 $toCreate["imaging_attachments"] = json_encode($stored);
@@ -143,7 +143,7 @@ class ImagingController extends Controller
                     ? json_decode($record->imaging_attachments, true)
                     : [];
                 foreach ($request->file("attachments") as $file) {
-                    $path = Storage::putFile("public/imaging", $file);
+                    $path = Storage::disk('public')->putFile("imaging", $file);
                     $stored[] = $path;
                 }
                 $validated["imaging_attachments"] = json_encode($stored);
