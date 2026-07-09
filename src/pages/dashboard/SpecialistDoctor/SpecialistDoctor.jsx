@@ -304,6 +304,12 @@ const SpecialistDoctorDashboard = () => {
             labResults: apt.lab_results || "",
             imagingResults: apt.imaging?.imaging_results || "",
             imagingType: apt.imaging?.test_type || "",
+            imagingAttachments: (() => {
+              const raw = apt.imaging?.imaging_attachments;
+              if (!raw) return [];
+              if (Array.isArray(raw)) return raw;
+              try { return JSON.parse(raw); } catch { return []; }
+            })(),
             referredSpecialistId: apt.referred_specialist_id || null,
             doctorName: apt.doctor?.name || "",
           })),
@@ -1088,6 +1094,69 @@ const SpecialistDoctorDashboard = () => {
                           "REPORT PENDING: No results submitted."}
                       </p>
                     </div>
+
+                    {/* Imaging Scan Attachments */}
+                    {selectedTask.imagingAttachments && selectedTask.imagingAttachments.length > 0 && (
+                      <div className="border-t border-slate-100 p-4">
+                        <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-3">
+                          Scan Images / Reports ({selectedTask.imagingAttachments.length})
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {selectedTask.imagingAttachments.map((filePath, idx) => {
+                            const url = `http://localhost:8000/storage/${filePath.replace("public/", "")}`;
+                            const isPdf = filePath.toLowerCase().endsWith(".pdf");
+
+                            if (isPdf) {
+                              return (
+                                <a
+                                  key={idx}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
+                                >
+                                  <svg className="h-8 w-8 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                                  </svg>
+                                  <div>
+                                    <p className="text-[10px] font-semibold text-slate-700">PDF Report</p>
+                                    <p className="text-[8px] text-slate-400">Click to view</p>
+                                  </div>
+                                </a>
+                              );
+                            }
+
+                            return (
+                              <a
+                                key={idx}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group relative block overflow-hidden rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow bg-slate-50"
+                              >
+                                <img
+                                  src={url}
+                                  alt={`Scan ${idx + 1}`}
+                                  className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-200"
+                                  onError={(e) => {
+                                    e.target.style.display = "none";
+                                    e.target.parentElement.innerHTML = `<div class="flex items-center justify-center h-32 text-xs text-slate-400">Image unavailable</div>`;
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                  <svg className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                  </svg>
+                                </div>
+                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent px-2 py-1">
+                                  <p className="text-[8px] text-white font-medium">Scan #{idx + 1}</p>
+                                </div>
+                              </a>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </section>
 

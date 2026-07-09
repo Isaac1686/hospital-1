@@ -79,6 +79,10 @@ const ImagingDashboard = () => {
 
   const handleCompleteImagingRequest = async () => {
     if (!modalRecord) return;
+    if (!modalFiles || modalFiles.length === 0) {
+      setModalError("Please upload at least one scan image or report file.");
+      return;
+    }
     setModalError("");
     setIsSubmittingComplete(true);
 
@@ -92,6 +96,7 @@ const ImagingDashboard = () => {
       let response;
       if (modalFiles && modalFiles.length > 0) {
         const formData = new FormData();
+        formData.append("_method", "PUT");
         formData.append("status", "completed");
         formData.append("technician_id", user?.id || "");
         if (modalResults.trim()) {
@@ -104,7 +109,7 @@ const ImagingDashboard = () => {
         response = await fetch(
           `http://localhost:8000/api/imaging/${modalRecord.id}`,
           {
-            method: "PUT",
+            method: "POST",
             body: formData,
           },
         );
@@ -589,6 +594,7 @@ const ImagingDashboard = () => {
               <label className="block">
                 <span className="text-sm font-bold text-gray-700">
                   Upload Scans / Reports (PDF, Images)
+                  <span className="text-red-500 ml-1">*</span>
                 </span>
                 <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-indigo-400 transition-colors">
                   <div className="space-y-1 text-center">
@@ -617,6 +623,7 @@ const ImagingDashboard = () => {
                           name="file-upload"
                           type="file"
                           multiple
+                          accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,application/pdf"
                           className="sr-only"
                           onChange={(e) => setModalFiles(e.target.files)}
                         />
@@ -631,6 +638,12 @@ const ImagingDashboard = () => {
                   </div>
                 </div>
               </label>
+
+              {(!modalFiles || modalFiles.length === 0) && (
+                <p className="text-xs text-red-500 mt-1">
+                  ⚠ At least one scan image or report file is required to submit results.
+                </p>
+              )}
 
               {modalError && (
                 <div className="rounded-md bg-red-50 border border-red-200 p-4 flex items-center gap-3 text-sm text-red-700">
@@ -660,7 +673,7 @@ const ImagingDashboard = () => {
                 <button
                   type="button"
                   onClick={handleCompleteImagingRequest}
-                  disabled={isSubmittingComplete || !modalResults.trim()}
+                  disabled={isSubmittingComplete || !modalResults.trim() || !modalFiles || modalFiles.length === 0}
                   className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-8 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400 shadow-md transition-all"
                 >
                   {isSubmittingComplete ? "Processing…" : "Submit Results"}
