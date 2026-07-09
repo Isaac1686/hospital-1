@@ -71,7 +71,7 @@ class ImagingController extends Controller
             if ($request->hasFile("attachments")) {
                 $stored = [];
                 foreach ($request->file("attachments") as $file) {
-                    $path = Storage::putFile("public/imaging", $file);
+                    $path = Storage::disk('public')->putFile("imaging", $file);
                     $stored[] = $path;
                 }
                 $toCreate["imaging_attachments"] = json_encode($stored);
@@ -117,6 +117,12 @@ class ImagingController extends Controller
         try {
             $record = Imaging::findOrFail($id);
 
+            // Require attachments when completing an imaging request
+            $attachmentRule = "nullable";
+            if ($request->input("status") === "completed" && !$record->imaging_attachments) {
+                $attachmentRule = "required";
+            }
+
             $validated = $request->validate([
                 "appointment_id" => "nullable|exists:appointments,id",
                 "patient_id" => "nullable|exists:users,id",
@@ -127,7 +133,8 @@ class ImagingController extends Controller
                 "status" =>
                     "nullable|in:pending,in-progress,completed,cancelled",
                 "imaging_results" => "nullable|string",
-                "attachments.*" => "file|max:10240",
+                "attachments" => $attachmentRule,
+                "attachments.*" => "file|mimes:png,jpg,jpeg,gif,bmp,webp,pdf|max:10240",
             ]);
 
             // handle file attachments if provided
@@ -136,7 +143,7 @@ class ImagingController extends Controller
                     ? json_decode($record->imaging_attachments, true)
                     : [];
                 foreach ($request->file("attachments") as $file) {
-                    $path = Storage::putFile("public/imaging", $file);
+                    $path = Storage::disk('public')->putFile("imaging", $file);
                     $stored[] = $path;
                 }
                 $validated["imaging_attachments"] = json_encode($stored);
