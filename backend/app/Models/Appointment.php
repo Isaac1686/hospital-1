@@ -41,12 +41,10 @@ class Appointment extends Model
         "cancellation_reason",
     ];
 
-    protected function casts(): array
-    {
-        return [
-            "appointment_date" => "date",
-        ];
-    }
+    protected $casts = [
+        "appointment_date" => "date",
+        "pharmacy_assigned_at" => "datetime",
+    ];
 
     public function patient(): BelongsTo
     {

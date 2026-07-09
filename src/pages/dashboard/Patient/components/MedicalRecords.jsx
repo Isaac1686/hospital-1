@@ -163,13 +163,26 @@ const MedicalRecords = () => {
     });
   };
 
-  const formatTime = (timeString) => {
-    if (!timeString) return 'TBD';
-    const [hours, minutes] = timeString.split(':');
-    const hour = parseInt(hours, 10);
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const twelveHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${twelveHour}:${minutes} ${period}`;
+  const formatTime = (timeString, createdAt) => {
+    // If an explicit appointment time like "13:30" is provided, format it.
+    if (timeString && typeof timeString === 'string' && timeString.includes(':')) {
+      const [hours, minutes] = timeString.split(':');
+      const hour = parseInt(hours, 10);
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const twelveHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      return `${twelveHour}:${minutes} ${period}`;
+    }
+
+    // Fallback: if there's a created_at timestamp, show the booking time from that.
+    const iso = createdAt || timeString;
+    if (!iso) return 'TBD';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return 'TBD';
+    const h = d.getHours();
+    const m = d.getMinutes().toString().padStart(2, '0');
+    const period = h >= 12 ? 'PM' : 'AM';
+    const twelveHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${twelveHour}:${m} ${period}`;
   };
 
   const scheduledCount = appointmentHistory.filter((apt) => apt.status === 'scheduled').length;
@@ -318,7 +331,7 @@ const MedicalRecords = () => {
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Time</p>
-                      <p className="text-lg font-semibold text-gray-900">{formatTime(appointment.appointment_time)}</p>
+                      <p className="text-lg font-semibold text-gray-900">{formatTime(appointment.appointment_time, appointment.created_at)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Status</p>

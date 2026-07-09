@@ -261,7 +261,14 @@ const PharmacyDashboard = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.status ? task.status.charAt(0).toUpperCase() + task.status.slice(1) : (task.assigned_department === 'pharmacy' ? 'Pending' : 'Waiting')}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(task.pharmacy_assigned_at || task.updated_at || task.created_at || Date.now()).toLocaleString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {task.status === 'completed' ? (
+                      {!task.pharmacy_dosage ? (
+                        <button
+                          onClick={() => handleCompletePrescription(task)}
+                          className="text-green-600 hover:text-green-900"
+                        >
+                          Confirm Complete
+                        </button>
+                      ) : task.status === 'completed' ? (
                         <span className="text-green-600 font-semibold">Completed</span>
                       ) : (
                         <button
