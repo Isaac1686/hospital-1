@@ -54,6 +54,14 @@ function initialsFromName(name) {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
+
+const QUEUE_WAIT_MINUTES = 5;
+function parseQueueNumber(queueNumber) {
+  if (queueNumber === null || queueNumber === undefined) return null;
+  const parsed = Number(queueNumber);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 const SpecialistDoctorDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -354,6 +362,20 @@ const SpecialistDoctorDashboard = () => {
     if (user?.id) {
       loadDashboard(user.id);
     }
+  };
+
+  const getEstimatedWaitTimeForTask = (task) => {
+    const queuedTasks = specialistTasks
+      .filter((item) => item.status !== "completed")
+      .map((item) => ({
+        ...item,
+        _queueNumber: parseQueueNumber(item.queueNumber),
+      }))
+      .filter((item) => item._queueNumber !== null)
+      .sort((a, b) => a._queueNumber - b._queueNumber);
+
+    const position = queuedTasks.findIndex((item) => item.id === task.id);
+    return position > 0 ? position * QUEUE_WAIT_MINUTES : 0;
   };
 
   const handleUpdateAppointment = async (appointmentId, updates) => {
@@ -887,7 +909,7 @@ const SpecialistDoctorDashboard = () => {
                 {specialistTasks.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={5}
                       className="px-6 py-4 text-center text-sm text-gray-500"
                     >
                       No specialist referrals assigned to you.
@@ -927,20 +949,22 @@ const SpecialistDoctorDashboard = () => {
                         >
                           View
                         </button>
-                        {task.assignedDepartment === "imaging" ||
-                          task.status === "waiting" ? (
-                          <span className="text-yellow-600">Waiting</span>
-                        ) : task.assignedDepartment !== "pharmacy" ? (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenSendToImagingModal(task)}
-                            className="text-purple-600 hover:text-purple-900 mr-4"
-                          >
-                            Send to Imaging
-                          </button>
-                        ) : null}
-                        {task.status === "completed" &&
-                          task.assignedDepartment !== "pharmacy" && (
+                        {task.status !== "completed" && (
+                          task.assignedDepartment === "imaging" ||
+                            task.status === "waiting" ? (
+                            <span className="text-yellow-600">Waiting</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenSendToImagingModal(task)}
+                              className="text-purple-600 hover:text-purple-900 mr-4"
+                            >
+                              Send to Imaging
+                            </button>
+                          )
+                        )}
+                        {task.status !== "completed" &&
+                          task.assignedDepartment === "specialist" && (
                             <button
                               type="button"
                               onClick={() =>
@@ -1125,8 +1149,12 @@ const SpecialistDoctorDashboard = () => {
                         </p>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                           {selectedTask.imagingAttachments.map((filePath, idx) => {
-                            const url = `http://localhost:8000/storage/${filePath.replace("public/", "")}`;
-                            const isPdf = filePath.toLowerCase().endsWith(".pdf");
+                            const normalizedPath = String(filePath)
+                              .replace(/^public\//, "")
+                              .replace(/^\\+/, "")
+                              .replace(/\\/g, "/");
+                            const url = `http://localhost:8000/storage/${normalizedPath}`;
+                            const isPdf = normalizedPath.toLowerCase().endsWith(".pdf");
 
                             if (isPdf) {
                               return (

@@ -19,14 +19,14 @@ const QueueManagement = () => {
       return;
     }
     setUser(JSON.parse(userData));
-    
+
     if (JSON.parse(userData).role === 'admin') {
       fetchAllQueues();
       setShowAllQueues(true);
     } else {
       fetchDoctorQueue();
     }
-    
+
     setLoading(false);
   }, [navigate]);
 
@@ -113,7 +113,8 @@ const QueueManagement = () => {
   };
 
   const calculateEstimatedWaitTime = (position) => {
-    return (position - 1) * 15; // 15 minutes per patient
+    // Start with 0 minutes if no patients, otherwise 5 minutes base + 15 minutes per additional patient
+    return position > 0 ? 5 + (position - 1) * 15 : 0;
   };
 
   if (loading) {
@@ -242,9 +243,8 @@ const QueueManagement = () => {
                             <span>Age: {patient.patient.age}</span>
                             <span>📞 {patient.patient.phone_number}</span>
                             <span>🕐 {formatTime(patient.appointment_time)}</span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              patient.priority_level === 'high' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                            }`}>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${patient.priority_level === 'high' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                              }`}>
                               {getPriorityBadge(patient.priority_level)}
                             </span>
                           </div>
@@ -328,9 +328,8 @@ const QueueManagement = () => {
                                 <span className="text-gray-500 text-sm ml-2">
                                   🕐 {formatTime(patient.appointment_time)}
                                 </span>
-                                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
-                                  patient.priority_level === 'high' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                                }`}>
+                                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${patient.priority_level === 'high' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                                  }`}>
                                   {getPriorityBadge(patient.priority_level)}
                                 </span>
                               </div>

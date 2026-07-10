@@ -594,9 +594,15 @@ class QueueController extends Controller
      */
     private function calculateWaitTime(int $position): int
     {
+        // If no position (no patient), return 0
+        if ($position <= 0) {
+            return 0;
+        }
+        
         // Average consultation time: 15 minutes
         $averageConsultationTime = 15;
-
-        return ($position - 1) * $averageConsultationTime;
+        
+        // Start with 5 minutes base wait, then add 15 minutes per patient ahead
+        return 5 + ($position - 1) * $averageConsultationTime;
     }
 }
