@@ -54,6 +54,14 @@ function initialsFromName(name) {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
+
+const QUEUE_WAIT_MINUTES = 5;
+function parseQueueNumber(queueNumber) {
+  if (queueNumber === null || queueNumber === undefined) return null;
+  const parsed = Number(queueNumber);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 const SpecialistDoctorDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -361,6 +369,20 @@ const SpecialistDoctorDashboard = () => {
     }
   };
 
+  const getEstimatedWaitTimeForTask = (task) => {
+    const queuedTasks = specialistTasks
+      .filter((item) => item.status !== "completed")
+      .map((item) => ({
+        ...item,
+        _queueNumber: parseQueueNumber(item.queueNumber),
+      }))
+      .filter((item) => item._queueNumber !== null)
+      .sort((a, b) => a._queueNumber - b._queueNumber);
+
+    const position = queuedTasks.findIndex((item) => item.id === task.id);
+    return position > 0 ? position * QUEUE_WAIT_MINUTES : 0;
+  };
+
   const handleUpdateAppointment = async (appointmentId, updates) => {
     const response = await fetch(
       `http://localhost:8000/api/appointments/${appointmentId}`,
@@ -475,11 +497,11 @@ const SpecialistDoctorDashboard = () => {
         prev.map((task) =>
           task.id === selectedTask.id
             ? {
-                ...task,
-                status: "waiting",
-                assignedDepartment: "imaging",
-                specialistNotes: imagingRequestDetails,
-              }
+              ...task,
+              status: "waiting",
+              assignedDepartment: "imaging",
+              specialistNotes: imagingRequestDetails,
+            }
             : task,
         ),
       );
@@ -511,11 +533,11 @@ const SpecialistDoctorDashboard = () => {
         prev.map((task) =>
           task.id === selectedTask.id
             ? {
-                ...task,
-                status: "waiting",
-                assignedDepartment: "specialist",
-                referredSpecialistId: sendToSpecialistId,
-              }
+              ...task,
+              status: "waiting",
+              assignedDepartment: "specialist",
+              referredSpecialistId: sendToSpecialistId,
+            }
             : task,
         ),
       );
@@ -871,6 +893,9 @@ const SpecialistDoctorDashboard = () => {
                     Queue Number
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Est. Wait
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -907,14 +932,17 @@ const SpecialistDoctorDashboard = () => {
                         {task.queueNumber}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {`${getEstimatedWaitTimeForTask(task)} min`}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {getStatusText(task.status) || "Pending"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {new Date(
                           task.bookedAt ||
-                            task.created_at ||
-                            task.updated_at ||
-                            Date.now(),
+                          task.created_at ||
+                          task.updated_at ||
+                          Date.now(),
                         ).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -925,20 +953,22 @@ const SpecialistDoctorDashboard = () => {
                         >
                           View
                         </button>
-                        {task.assignedDepartment === "imaging" ||
-                        task.status === "waiting" ? (
-                          <span className="text-yellow-600">Waiting</span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenSendToImagingModal(task)}
-                            className="text-purple-600 hover:text-purple-900 mr-4"
-                          >
-                            Send to Imaging
-                          </button>
+                        {task.status !== "completed" && (
+                          task.assignedDepartment === "imaging" ||
+                            task.status === "waiting" ? (
+                            <span className="text-yellow-600">Waiting</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenSendToImagingModal(task)}
+                              className="text-purple-600 hover:text-purple-900 mr-4"
+                            >
+                              Send to Imaging
+                            </button>
+                          )
                         )}
-                        {task.assignedDepartment === "specialist" &&
-                          task.status === "completed" && (
+                        {task.status !== "completed" &&
+                          task.assignedDepartment === "specialist" && (
                             <button
                               type="button"
                               onClick={() =>
@@ -1040,11 +1070,10 @@ const SpecialistDoctorDashboard = () => {
                     Status
                   </p>
                   <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                      selectedTask.status === "completed"
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-amber-50 text-amber-700 border border-amber-200"
-                    }`}
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${selectedTask.status === "completed"
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-amber-50 text-amber-700 border border-amber-200"
+                      }`}
                   >
                     {getStatusText(selectedTask.status)}
                   </span>
@@ -1103,8 +1132,12 @@ const SpecialistDoctorDashboard = () => {
                         </p>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                           {selectedTask.imagingAttachments.map((filePath, idx) => {
-                            const url = `http://localhost:8000/storage/${filePath.replace("public/", "")}`;
-                            const isPdf = filePath.toLowerCase().endsWith(".pdf");
+                            const normalizedPath = String(filePath)
+                              .replace(/^public\//, "")
+                              .replace(/^\\+/, "")
+                              .replace(/\\/g, "/");
+                            const url = `http://localhost:8000/storage/${normalizedPath}`;
+                            const isPdf = normalizedPath.toLowerCase().endsWith(".pdf");
 
                             if (isPdf) {
                               return (
