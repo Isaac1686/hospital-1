@@ -139,14 +139,12 @@ class ImagingController extends Controller
 
             // handle file attachments if provided
             if ($request->hasFile("attachments")) {
-                $stored = $record->imaging_attachments
-                    ? json_decode($record->imaging_attachments, true)
-                    : [];
+                $stored = is_array($record->imaging_attachments) ? $record->imaging_attachments : [];
                 foreach ($request->file("attachments") as $file) {
                     $path = Storage::disk('public')->putFile("imaging", $file);
                     $stored[] = $path;
                 }
-                $validated["imaging_attachments"] = json_encode($stored);
+                $validated["imaging_attachments"] = $stored;
             }
 
             $record->update($validated);
