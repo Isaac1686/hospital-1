@@ -81,11 +81,11 @@ const SpecialistDoctorDashboard = () => {
   const [availableSpecialists, setAvailableSpecialists] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [showSendToSpecialistModal, setShowSendToSpecialistModal] =
+  const [showSendToPharmacyModal, setShowSendToPharmacyModal] =
     useState(false);
   const [showSendToImagingModal, setShowSendToImagingModal] = useState(false);
-  const [sendToSpecialistId, setSendToSpecialistId] = useState(null);
-  const [sendToSpecialistError, setSendToSpecialistError] = useState("");
+  const [sendToPharmacyError, setSendToPharmacyError] = useState("");
+  const [pharmacyMedication, setPharmacyMedication] = useState("");
   const [sendToImagingError, setSendToImagingError] = useState("");
   const [imagingRequestDetails, setImagingRequestDetails] = useState("");
   const [imagingType, setImagingType] = useState("X-ray");
@@ -280,7 +280,7 @@ const SpecialistDoctorDashboard = () => {
       if (!user?.id) return;
       try {
         const response = await fetch(
-          `http://localhost:8000/api/appointments?doctor_id=${user.id}`,
+          `http://localhost:8000/api/appointments?assigned_department=specialist&specialist_id=${user.id}`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -312,12 +312,7 @@ const SpecialistDoctorDashboard = () => {
             labResults: apt.lab_results || "",
             imagingResults: apt.imaging?.imaging_results || "",
             imagingType: apt.imaging?.test_type || "",
-            imagingAttachments: (() => {
-              const raw = apt.imaging?.imaging_attachments;
-              if (!raw) return [];
-              if (Array.isArray(raw)) return raw;
-              try { return JSON.parse(raw); } catch { return []; }
-            })(),
+            imagingAttachmentUrls: apt.imaging?.imaging_attachment_urls || [],
             referredSpecialistId: apt.referred_specialist_id || null,
             doctorName: apt.doctor?.name || "",
           })),
@@ -448,18 +443,18 @@ const SpecialistDoctorDashboard = () => {
     setShowViewModal(false);
   };
 
-  const handleOpenSendToSpecialistModal = (task) => {
+  const handleOpenSendToPharmacyModal = (task) => {
     setSelectedTask(task);
-    setSendToSpecialistId(availableSpecialists[0]?.id || null);
-    setSendToSpecialistError("");
-    setShowSendToSpecialistModal(true);
+    setSendToPharmacyError("");
+    setPharmacyMedication(task.pharmacy_medication || "");
+    setShowSendToPharmacyModal(true);
   };
 
-  const handleCloseSendToSpecialistModal = () => {
+  const handleCloseSendToPharmacyModal = () => {
     setSelectedTask(null);
-    setSendToSpecialistId(null);
-    setSendToSpecialistError("");
-    setShowSendToSpecialistModal(false);
+    setSendToPharmacyError("");
+    setPharmacyMedication("");
+    setShowSendToPharmacyModal(false);
   };
 
   const handleOpenSendToImagingModal = (task) => {
@@ -513,20 +508,24 @@ const SpecialistDoctorDashboard = () => {
     }
   };
 
-  const handleConfirmSendToSpecialist = async () => {
+  const handleConfirmSendToPharmacy = async () => {
     if (!selectedTask) return;
-    if (!sendToSpecialistId) {
-      setSendToSpecialistError("Please select a specialist to refer to.");
+
+    if (!pharmacyMedication.trim()) {
+      setSendToPharmacyError(
+        "Please enter the medication to dispense before sending to pharmacy.",
+      );
       return;
     }
 
     try {
+      const now = new Date().toISOString();
       await handleUpdateAppointment(selectedTask.id, {
-        assigned_department: "specialist",
-        status: "waiting",
-        referred_specialist_id: sendToSpecialistId,
-        specialist_notes:
-          selectedTask.specialistNotes || "Referral after imaging results.",
+        assigned_department: "pharmacy",
+        status: "completed",
+        pharmacy_medication: pharmacyMedication.trim(),
+        pharmacy_dosage: null,
+        pharmacy_assigned_at: now,
       });
 
       setSpecialistTasks((prev) =>
@@ -534,18 +533,21 @@ const SpecialistDoctorDashboard = () => {
           task.id === selectedTask.id
             ? {
               ...task,
-              status: "waiting",
-              assignedDepartment: "specialist",
-              referredSpecialistId: sendToSpecialistId,
+              status: "completed",
+              assignedDepartment: "pharmacy",
+              pharmacyMedication: pharmacyMedication.trim(),
+              pharmacy_medication: pharmacyMedication.trim(),
+              pharmacy_dosage: null,
+              pharmacy_assigned_at: now,
             }
             : task,
         ),
       );
-      handleCloseSendToSpecialistModal();
-      alert("Patient referred to selected specialist.");
+      handleCloseSendToPharmacyModal();
+      alert("Patient sent to pharmacy with medication instructions.");
     } catch (error) {
       console.error(error);
-      alert(error.message || "Unable to send patient to selected specialist.");
+      alert(error.message || "Unable to send patient to pharmacy.");
     }
   };
 
@@ -972,11 +974,11 @@ const SpecialistDoctorDashboard = () => {
                             <button
                               type="button"
                               onClick={() =>
-                                handleOpenSendToSpecialistModal(task)
+                                handleOpenSendToPharmacyModal(task)
                               }
-                              className="text-indigo-600 hover:text-indigo-900 mr-4"
+                              className="text-green-600 hover:text-green-900 mr-4"
                             >
-                              Send to Specialist
+                              Send to Pharmacy
                             </button>
                           )}
                         <button
@@ -1117,11 +1119,32 @@ const SpecialistDoctorDashboard = () => {
                         {new Date().toLocaleDateString()}
                       </span>
                     </div>
-                    <div className="p-4">
+                    <div className="p-4 space-y-4">
                       <p className="text-[11px] font-mono text-slate-800 bg-slate-50 p-3 border border-slate-100 rounded leading-relaxed">
                         {selectedTask.imagingResults ||
                           "REPORT PENDING: No results submitted."}
                       </p>
+                      {selectedTask.imagingAttachmentUrls?.length > 0 && (
+                        <div className="rounded-lg border border-slate-200 bg-white p-4">
+                          <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-[0.15em] mb-2">
+                            Uploaded Imaging Files
+                          </h4>
+                          <ul className="space-y-2 text-sm text-slate-700">
+                            {selectedTask.imagingAttachmentUrls.map((url, index) => (
+                              <li key={url}>
+                                <a
+                                  href={url}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  className="text-indigo-600 hover:text-indigo-900 underline"
+                                >
+                                  View uploaded file {index + 1}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
 
                     {/* Imaging Scan Attachments */}
@@ -1228,16 +1251,16 @@ const SpecialistDoctorDashboard = () => {
         </div>
       )}
 
-      {showSendToSpecialistModal && selectedTask && (
+      {showSendToPharmacyModal && selectedTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="w-full max-w-xl rounded-xl bg-white shadow-xl ring-1 ring-black/10">
             <div className="flex items-center justify-between border-b px-6 py-4">
               <h3 className="text-lg font-semibold text-gray-900">
-                Refer Patient to Specialist
+                Send Patient to Pharmacy
               </h3>
               <button
                 type="button"
-                onClick={handleCloseSendToSpecialistModal}
+                onClick={handleCloseSendToPharmacyModal}
                 className="text-gray-500 hover:text-gray-700"
               >
                 Close
@@ -1249,51 +1272,39 @@ const SpecialistDoctorDashboard = () => {
                 <p>{selectedTask.patientName}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Select Specialist
-                </label>
-                <select
-                  value={sendToSpecialistId ?? ""}
-                  onChange={(e) =>
-                    setSendToSpecialistId(Number(e.target.value))
-                  }
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                >
-                  <option value="">Choose specialist</option>
-                  {availableSpecialists.map((specialist) => (
-                    <option key={specialist.id} value={specialist.id}>
-                      {specialist.name || specialist.email}
-                    </option>
-                  ))}
-                </select>
-                {sendToSpecialistError && (
+                <p className="font-medium text-gray-900">Medication</p>
+                <input
+                  type="text"
+                  value={pharmacyMedication}
+                  onChange={(e) => setPharmacyMedication(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                  placeholder="e.g. qww 200mg"
+                />
+                {sendToPharmacyError && (
                   <p className="mt-2 text-sm text-red-600">
-                    {sendToSpecialistError}
+                    {sendToPharmacyError}
                   </p>
                 )}
               </div>
               <div>
-                <p className="font-medium text-gray-900">Notes</p>
-                <p>
-                  {selectedTask.specialistNotes ||
-                    "Referral after imaging results."}
-                </p>
+                <p className="font-medium text-gray-900">Status</p>
+                <p>Patient will be sent to pharmacy to complete medication fulfillment.</p>
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 border-t px-6 py-4">
               <button
                 type="button"
-                onClick={handleCloseSendToSpecialistModal}
+                onClick={handleCloseSendToPharmacyModal}
                 className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={handleConfirmSendToSpecialist}
-                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                onClick={handleConfirmSendToPharmacy}
+                className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
               >
-                Send Referral
+                Send to Pharmacy
               </button>
             </div>
           </div>
